@@ -129,11 +129,9 @@ class ControlCenterSystemController(
     }
 
     fun openBluetoothSettings() {
-        openSettingsPanelOrIntent(
-            panelAction = Settings.Panel.ACTION_BLUETOOTH,
-            fallbackAction = Settings.ACTION_BLUETOOTH_SETTINGS
-        )
-    }
+    openAction(Settings.ACTION_BLUETOOTH_SETTINGS)
+}
+
 
     fun openInternetSettings() {
         openSettingsPanelOrIntent(
