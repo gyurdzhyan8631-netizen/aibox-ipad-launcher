@@ -1,10 +1,10 @@
 package com.aibox.launcher.shell
 
-import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,10 +34,10 @@ import com.aibox.launcher.appdrawer.AppDrawerOverlay
 import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
+import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.CarouselDockBar
 import com.aibox.launcher.dock.DockDefaults
 import com.aibox.launcher.dock.SystemNavigationCapsule
-import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.DynamicWeatherWallpaper
@@ -83,8 +83,9 @@ private fun readTopStatusCapsuleState(context: Context): TopStatusCapsuleState {
         wifiCount = 1
     }
 
-    val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-    val isBtOn = runCatching { btManager?.adapter?.isEnabled == true }.getOrDefault(false)
+    val isBtOn = runCatching {
+        Settings.Global.getInt(context.contentResolver, Settings.Global.BLUETOOTH_ON, 0) == 1
+    }.getOrDefault(false)
 
     return TopStatusCapsuleState(
         isVpnActive = hasVpn,
