@@ -1,0 +1,65 @@
+# AI Box Car Launcher (iPadOS Style)
+
+Премиальный открытый автомобильный лаунчер для **Android AI Box** и автомобильных мультимедийных экранов (горизонтальная ориентация `Landscape 16:9+`), вдохновлённый эстетикой Apple iPadOS / iOS.
+
+## Ключевые возможности
+- **Два независимых рабочих стола (Home Screen 1 & 2)** с плавным переключением свайпом и свободной раскладкой.
+- **Dock Bar с пространственной каруселью иконок** — центральный фокус, плавное масштабирование, Drag & Drop, кастомные иконки.
+- **Капсула системных кнопок (Back / Home / Recents)** — реальные системные действия Android (через `AccessibilityService` + fallback-механизмы для AI Box).
+- **Живые погодные и суточные обои** — динамические сцены (Утро / День / Вечер / Ночь + погода) с оптимизацией под GPU AI Box.
+- **Control Center (iOS Style)** & **App Drawer (Samsung DeX + iPadOS Style)**.
+- **Система виджетов и полная персонализация** — кастомные PNG-логотипы без белого фона, скругления, тени, прозрачность, 5 визуальных тем.
+- **Автомобильный режим** — крупные элементы управления и минимальное отвлечение водителя.
+
+## Архитектура проекта
+Проект построен по многомодульной архитектуре (Kotlin + Jetpack Compose + MVVM + Coroutines/Flow + Room + DataStore):
+```text
+├── app/                # Точка входа, MainActivity (Home Launcher), Navigation, DI
+├── core/
+│   ├── core-model/     # Доменные модели рабочих столов, элементов, тем, настроек
+│   ├── core-data/      # Room DB, DataStore, репозитории настроек и раскладок
+│   └── core-ui/        # Дизайн-система, 5 тем оформления, шейдеры/эффекты стекла
+├── launcher/           # Координатор оболочки и состояния экранов
+├── desktop/            # Home Screen 1 & 2, режим редактирования (Jiggle/Edit Mode)
+├── dock/               # Нижняя панель и интерактивная карусель
+├── widgets/            # Система виджетов (Часы, Дата, Погода, Музыка, Навигация и др.)
+├── wallpaper/          # Движок живых погодных и суточных обоев
+├── weather/            # Провайдер погоды, кэширование и оффлайн-режим
+├── control-center/     # Шторка быстрого управления в стиле iOS
+├── app-drawer/         # Меню всех приложений в стиле Samsung DeX
+├── settings/           # Полноценные настройки в стиле iPadOS (Split View)
+├── icons/              # Загрузка и кастомизация PNG/WEBP иконок и логотипов
+├── gestures/           # Распознавание свайпов, пинчей и долгих нажатий
+└── system/             # AccessibilityService (Back/Home/Recents), PackageManager, Boot
+```
+
+## Сборка APK
+
+### Требования
+- JDK 17+
+- Android SDK (compileSdk 35, minSdk 31 / Android 12+)
+- Gradle 8.9+ (через `./gradlew`)
+
+### Команды сборки
+```bash
+# Клонирование репозитория
+git clone https://github.com/your-username/aibox-ipad-launcher.git
+cd aibox-ipad-launcher
+
+# Сборка Debug APK
+./gradlew assembleDebug
+
+# Сборка Release APK (unsigned)
+./gradlew assembleRelease
+
+# Установка на подключённый AI Box через ADB
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Настройка на Android AI Box
+1. Установите APK на устройство.
+2. Перейдите в **Настройки Android -> Приложения -> Приложения по умолчанию -> Главный экран** и выберите **AI Box Launcher**.
+3. Для работы системных кнопок **Back** и **Recents** в капсуле разрешите службу **Специальные возможности (Accessibility)** для `AI Box Launcher`.
+
+## Лицензия
+Проект распространяется под лицензией [MIT](LICENSE).

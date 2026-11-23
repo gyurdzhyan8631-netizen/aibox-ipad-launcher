@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">AI Box Launcher</string>
+    <string name="accessibility_service_description">Обеспечивает работу системных кнопок Back, Home и Recents в нижней капсуле автомобильного лаунчера.</string>
+</resources>
