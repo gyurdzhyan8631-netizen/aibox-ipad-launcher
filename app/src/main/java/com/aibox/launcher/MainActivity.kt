@@ -19,8 +19,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AiBoxLauncherTheme {
-                TopSwipeControlCenterHost {
-                    LauncherRootScreen()
+                TopSwipeControlCenterHost { openControlCenter ->
+                    LauncherRootScreen(onOpenControlCenter = openControlCenter)
                 }
             }
         }

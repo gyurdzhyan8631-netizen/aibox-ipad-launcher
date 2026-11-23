@@ -1,5 +1,6 @@
 package com.aibox.launcher.shell
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,10 +23,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.appdrawer.AppDrawerOverlay
 import com.aibox.launcher.core.model.DayPeriod
+import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.dock.CarouselDockBar
+import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.SystemNavigationCapsule
+import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.DynamicWeatherWallpaper
 import kotlinx.coroutines.delay
@@ -35,11 +40,22 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun LauncherRootScreen() {
+fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
     val context = LocalContext.current
     val systemActions = remember { SystemActionsHandler(context) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
+
+    val apps by produceState(initialValue = emptyList<InstalledApp>()) {
+        value = InstalledAppsRepository(context).loadLaunchableApps()
+    }
+    val launchApp: (InstalledApp) -> Unit = { app ->
+        val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+        if (intent != null) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(intent) }
+        }
+    }
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     var showControlCenter by remember { mutableStateOf(false) }
@@ -117,7 +133,7 @@ fun LauncherRootScreen() {
                             .clip(CircleShape)
                             .background(Color(0x401C1C1E))
                             .border(1.dp, Color(0x33FFFFFF), CircleShape)
-                            .clickable { showControlCenter = !showControlCenter }
+                            .clickable { onOpenControlCenter() }
                     ) {
                         Icon(Icons.Rounded.Tune, "Control Center", tint = Color.White)
                     }
@@ -130,7 +146,11 @@ fun LauncherRootScreen() {
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
-                    DesktopPagePlaceholder(pageIndex = page)
+                    HomeScreenPage(
+                        pageIndex = page,
+                        apps = apps,
+                        onLaunchApp = launchApp
+                    )
                 }
 
                 // Page Indicator
@@ -186,34 +206,16 @@ fun LauncherRootScreen() {
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun DesktopPagePlaceholder(pageIndex: Int) {
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(vertical = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp)
-    ) {
-        val titles = if (pageIndex == 0) {
-            listOf("Навигация • Карта", "Музыкальный плеер", "Погода и поездка")
-        } else {
-            listOf("Рабочий стол 2 • Виджеты", "Избранные приложения", "Логотип автомобиля")
-        }
-        titles.forEach { title ->
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color(0x381C1C1E))
-                    .border(1.dp, Color(0x2EFFFFFF), RoundedCornerShape(28.dp))
-            ) {
-                Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
+        // 5. App Drawer overlay
+        AppDrawerOverlay(
+            visible = showAppDrawer,
+            apps = apps,
+            onLaunchApp = { app ->
+                showAppDrawer = false
+                launchApp(app)
+            },
+            onDismiss = { showAppDrawer = false }
+        )
     }
 }

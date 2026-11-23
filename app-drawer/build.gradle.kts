@@ -28,6 +28,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(project(":core:core-model"))
     implementation(project(":core:core-ui"))
+    implementation(project(":icons"))
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
