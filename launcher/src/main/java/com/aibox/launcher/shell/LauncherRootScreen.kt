@@ -1,7 +1,10 @@
 package com.aibox.launcher.shell
 
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,8 +14,10 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Bluetooth
+import androidx.compose.material.icons.rounded.SignalCellular4Bar
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material.icons.rounded.WbSunny
+import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -30,9 +35,9 @@ import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.dock.CarouselDockBar
-import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.DockDefaults
 import com.aibox.launcher.dock.SystemNavigationCapsule
+import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.DynamicWeatherWallpaper
@@ -41,6 +46,54 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private data class TopStatusCapsuleState(
+    val isVpnActive: Boolean = false,
+    val isWifiActive: Boolean = false,
+    val wifiConnectedCount: Int = 0,
+    val isCellularActive: Boolean = false,
+    val isBluetoothActive: Boolean = false
+)
+
+private fun readTopStatusCapsuleState(context: Context): TopStatusCapsuleState {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    val allNetworks = runCatching { cm?.allNetworks }.getOrNull().orEmpty()
+
+    var hasVpn = false
+    var hasWifi = false
+    var hasCellular = false
+    var wifiCount = 0
+
+    allNetworks.forEach { network ->
+        val caps = runCatching { cm?.getNetworkCapabilities(network) }.getOrNull() ?: return@forEach
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
+            hasVpn = true
+        }
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            hasWifi = true
+            wifiCount += 1
+        }
+        if (caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) {
+            hasCellular = true
+        }
+    }
+
+    val activeCaps = runCatching { cm?.activeNetwork?.let { cm.getNetworkCapabilities(it) } }.getOrNull()
+    if (activeCaps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true && wifiCount == 0) {
+        wifiCount = 1
+    }
+
+    val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    val isBtOn = runCatching { btManager?.adapter?.isEnabled == true }.getOrDefault(false)
+
+    return TopStatusCapsuleState(
+        isVpnActive = hasVpn,
+        isWifiActive = hasWifi,
+        wifiConnectedCount = if (hasWifi) wifiCount.coerceAtLeast(1) else 0,
+        isCellularActive = hasCellular,
+        isBluetoothActive = isBtOn
+    )
+}
 
 @Composable
 fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
@@ -61,6 +114,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
     val apps by produceState(initialValue = emptyList<InstalledApp>()) {
         value = InstalledAppsRepository(context).loadLaunchableApps()
     }
+
     val launchApp: (InstalledApp) -> Unit = { app ->
         val intent = context.packageManager.getLaunchIntentForPackage(app.packageName)
         if (intent != null) {
@@ -70,6 +124,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
     }
 
     var now by remember { mutableStateOf(LocalDateTime.now()) }
+    var statusState by remember { mutableStateOf(readTopStatusCapsuleState(context)) }
     var showControlCenter by remember { mutableStateOf(false) }
     var showAppDrawer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
@@ -77,6 +132,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
     LaunchedEffect(Unit) {
         while (true) {
             now = LocalDateTime.now()
+            statusState = readTopStatusCapsuleState(context)
             delay(1000L)
         }
     }
@@ -101,7 +157,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 .padding(horizontal = 28.dp, vertical = if (compact) 10.dp else 18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // 2. Top Header: Big iPadOS Clock, Date, Weather & Control Center Trigger
+            // 2. Top Header: Big iPadOS Clock, Date, Status Capsule & Control Center
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -125,18 +181,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(Color(0x401C1C1E))
-                            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(22.dp))
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                    ) {
-                        Icon(Icons.Rounded.WbSunny, null, tint = Color(0xFFFFD60A))
-                        Spacer(Modifier.width(8.dp))
-                        Text("+22° Ясно", color = Color.White, fontWeight = FontWeight.Medium)
-                    }
+                    TopConnectivityCapsule(state = statusState)
 
                     Box(
                         contentAlignment = Alignment.Center,
@@ -176,8 +221,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                         val active = pagerState.currentPage == idx
                         Box(
                             modifier = Modifier
-                                .height(6.dp)
-                                .width(if (active) 22.dp else 6.dp)
+                                .size(if (active) 8.dp else 6.dp)
                                 .clip(CircleShape)
                                 .background(if (active) Color.White else Color.White.copy(alpha = 0.4f))
                         )
@@ -205,12 +249,12 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                         showAppDrawer = false
                         showControlCenter = false
                         scope.launch { pagerState.animateScrollToPage(0) }
-                        systemActions.triggerHome {}
+                        systemActions.triggerHome()
                     },
                     onRecents = { systemActions.triggerRecents() }
                 )
 
-                Spacer(Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 CarouselDockBar(
                     apps = apps,
@@ -244,6 +288,71 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 prefs.edit().putFloat("panel_scale", v).apply()
             },
             onDismiss = { showSettings = false }
+        )
+    }
+}
+
+@Composable
+private fun TopConnectivityCapsule(state: TopStatusCapsuleState) {
+    val activeMint = Color(0xFF34E5B5)
+    val inactiveWhite = Color.White
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color(0x401C1C1E))
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(22.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        val vpnColor = if (state.isVpnActive) activeMint else inactiveWhite
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .border(1.5.dp, vpnColor, RoundedCornerShape(6.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = "VPN",
+                color = vpnColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Box(contentAlignment = Alignment.TopEnd) {
+            Icon(
+                imageVector = Icons.Rounded.Wifi,
+                contentDescription = "Wi-Fi",
+                tint = if (state.isWifiActive) activeMint else inactiveWhite,
+                modifier = Modifier
+                    .size(22.dp)
+                    .padding(top = 2.dp, end = 2.dp)
+            )
+            if (state.isWifiActive && state.wifiConnectedCount > 0) {
+                Text(
+                    text = state.wifiConnectedCount.toString(),
+                    color = activeMint,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 9.sp
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Rounded.SignalCellular4Bar,
+            contentDescription = "Сеть",
+            tint = if (state.isCellularActive) activeMint else inactiveWhite,
+            modifier = Modifier.size(21.dp)
+        )
+
+        Icon(
+            imageVector = Icons.Rounded.Bluetooth,
+            contentDescription = "Bluetooth",
+            tint = if (state.isBluetoothActive) activeMint else inactiveWhite,
+            modifier = Modifier.size(21.dp)
         )
     }
 }
