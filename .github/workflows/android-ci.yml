@@ -5,6 +5,10 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -19,16 +23,55 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
-      - name: Build Debug APK
+      # Если в корне репозитория лежит patch.zip: распаковать, удалить лишнее, убрать архив.
+      - name: Apply patch.zip
         run: |
-          if [ ! -f ./gradlew ]; then
+          if [ -f patch.zip ]; then
+            rm -rf _patch_tmp
+            unzip -oq patch.zip -d _patch_tmp
+            if [ -f _patch_tmp/.apply-delete.txt ]; then
+              while IFS= read -r p || [ -n "$p" ]; do
+                case "$p" in
+                  ""|/*|*..*) continue ;;
+                esac
+                rm -rf -- "$p"
+              done < _patch_tmp/.apply-delete.txt
+              rm -f _patch_tmp/.apply-delete.txt
+            fi
+            cp -a _patch_tmp/. .
+            rm -rf _patch_tmp patch.zip
+            echo "patch.zip applied"
+          else
+            echo "no patch.zip"
+          fi
+
+      - name: Generate Gradle wrapper if missing
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ] || [ ! -f ./gradlew ]; then
             gradle wrapper --gradle-version 8.9 --distribution-type bin
           fi
           chmod +x ./gradlew
-          ./gradlew assembleDebug
+
+      - name: Commit changes back to the repository
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Apply patch and update Gradle wrapper"
+            git push
+          else
+            echo "nothing to commit"
+          fi
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
