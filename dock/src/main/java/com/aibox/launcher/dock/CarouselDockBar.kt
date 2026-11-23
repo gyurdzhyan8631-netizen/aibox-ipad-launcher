@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -40,15 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.maxOf
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.icons.AppIconView
+import kotlin.math.abs
 
-/**
- * Нижний док:
- * - Слева закреплена кнопка «Все приложения»
- * - Затем прокручиваемый ряд иконок приложений с пружинным увеличением активной/центральной иконки
- *   и лёгким затемнением соседних при прокрутке
- * - Справа кнопка размера панелей
- * - Названия под иконками полностью убраны
- */
 @Composable
 fun CarouselDockBar(
     apps: List<InstalledApp>,
@@ -74,7 +68,7 @@ fun CarouselDockBar(
                 val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
                 layoutInfo.visibleItemsInfo.minByOrNull { item ->
                     val itemCenter = item.offset + item.size / 2f
-                    kotlin.math.abs(itemCenter - viewportCenter)
+                    abs(itemCenter - viewportCenter)
                 }?.index ?: 0
             }
         }
@@ -84,7 +78,7 @@ fun CarouselDockBar(
         derivedStateOf { listState.isScrollInProgress }
     }
 
-    androidx.compose.foundation.layout.Row(
+    Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .height(panelHeight)
@@ -114,7 +108,7 @@ fun CarouselDockBar(
             itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
                 val isCentered = index == centeredIndex
                 val isSelected = (selectedPackageName == app.packageName) || (!isScrolling && isCentered)
-                val neighborDistance = kotlin.math.abs(index - centeredIndex)
+                val neighborDistance = abs(index - centeredIndex)
 
                 val targetScale = when {
                     isSelected -> 1.18f
@@ -157,7 +151,6 @@ fun CarouselDockBar(
                         .scale(animatedScale)
                         .alpha(animatedAlpha)
                 ) {
-                    // Обрезаем нижнюю часть на случай, если AppIconView рисует подпись под иконкой
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
@@ -169,8 +162,7 @@ fun CarouselDockBar(
                             onClick = {
                                 selectedPackageName = app.packageName
                                 onLaunchApp(app)
-                            },
-                            iconSize = iconSize
+                            }
                         )
                     }
 
