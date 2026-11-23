@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import com.aibox.launcher.controlcenter.TopSwipeControlCenterHost
 import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
 import com.aibox.launcher.shell.LauncherRootScreen
 
@@ -18,7 +19,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AiBoxLauncherTheme {
-                LauncherRootScreen()
+                TopSwipeControlCenterHost {
+                    LauncherRootScreen()
+                }
             }
         }
     }
