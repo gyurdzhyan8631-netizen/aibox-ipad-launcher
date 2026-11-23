@@ -2,11 +2,10 @@ package com.aibox.launcher.desktop
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -24,12 +23,10 @@ import com.aibox.launcher.widgets.BatteryWidget
 import com.aibox.launcher.widgets.ConnectionWidget
 import com.aibox.launcher.widgets.DateWidget
 
-/** Сколько приложений помещается на первый рабочий стол под виджетами. */
-const val HOME_PAGE_ONE_APP_COUNT = 8
-
 /**
  * Рабочий стол.
- * Страница 0: виджеты + первые приложения. Страница 1: остальные приложения.
+ * Страница 0: виджеты на всю высоту. Страница 1: все приложения (прокручивается).
+ * Снизу оставлено место под индикатор страниц.
  */
 @Composable
 fun HomeScreenPage(
@@ -38,62 +35,42 @@ fun HomeScreenPage(
     onLaunchApp: (InstalledApp) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val content = modifier
+        .fillMaxSize()
+        .padding(bottom = 22.dp)
+
     if (pageIndex == 0) {
-        Column(
-            modifier = modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Row(
+            modifier = content,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(150.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                DateWidget(modifier = Modifier.weight(1f).fillMaxSize())
-                BatteryWidget(modifier = Modifier.weight(1f).fillMaxSize())
-                ConnectionWidget(modifier = Modifier.weight(1f).fillMaxSize())
-            }
-            AppGrid(
-                apps = apps.take(HOME_PAGE_ONE_APP_COUNT),
-                onLaunchApp = onLaunchApp,
-                modifier = Modifier.weight(1f).fillMaxWidth()
+            DateWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+            BatteryWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+            ConnectionWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+        }
+    } else if (apps.isEmpty()) {
+        Box(modifier = content, contentAlignment = Alignment.Center) {
+            Text(
+                text = "Приложения загружаются…",
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 16.sp,
+                textAlign = TextAlign.Center
             )
         }
     } else {
-        val rest = apps.drop(HOME_PAGE_ONE_APP_COUNT)
-        if (rest.isEmpty()) {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Здесь пока пусто.\nВсе приложения — в меню «Приложения» на панели.",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = 88.dp),
+            modifier = content,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            items(apps, key = { it.packageName }) { app ->
+                AppIconView(
+                    app = app,
+                    iconSize = 56.dp,
+                    onClick = { onLaunchApp(app) }
                 )
             }
-        } else {
-            AppGrid(
-                apps = rest,
-                onLaunchApp = onLaunchApp,
-                modifier = modifier.fillMaxSize()
-            )
-        }
-    }
-}
-
-@Composable
-private fun AppGrid(
-    apps: List<InstalledApp>,
-    onLaunchApp: (InstalledApp) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 96.dp),
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(apps, key = { it.packageName }) { app ->
-            AppIconView(app = app, onClick = { onLaunchApp(app) })
         }
     }
 }

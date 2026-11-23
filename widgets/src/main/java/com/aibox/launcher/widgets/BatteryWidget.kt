@@ -54,13 +54,13 @@ fun BatteryWidget(modifier: Modifier = Modifier) {
             Text(
                 text = "Питание",
                 color = tokens.accent,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = info.percent?.let { "$it%" } ?: "Авто",
                 color = tokens.textPrimary,
-                fontSize = 52.sp,
+                fontSize = widgetNumberSize(),
                 fontWeight = FontWeight.Bold
             )
             Text(
@@ -70,7 +70,7 @@ fun BatteryWidget(modifier: Modifier = Modifier) {
                     else -> "От батареи"
                 },
                 color = tokens.textSecondary,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
         }
     }

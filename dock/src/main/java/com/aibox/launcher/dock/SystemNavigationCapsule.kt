@@ -3,7 +3,12 @@ package com.aibox.launcher.dock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -24,20 +30,25 @@ fun SystemNavigationCapsule(
     onBack: () -> Unit,
     onHome: () -> Unit,
     onRecents: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scale: Float = DockDefaults.DEFAULT_SCALE
 ) {
+    val panelHeight = DockDefaults.panelHeight(scale)
+    val buttonSize = panelHeight * 0.62f
+    val shape = RoundedCornerShape(panelHeight * 0.38f)
     Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(panelHeight * 0.14f),
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
+            .height(panelHeight)
+            .clip(shape)
             .background(Color(0x661C1C1E))
-            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(32.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp)
+            .border(1.dp, Color(0x33FFFFFF), shape)
+            .padding(horizontal = panelHeight * 0.2f)
     ) {
-        CapsuleButton(Icons.AutoMirrored.Rounded.ArrowBack, "Назад", onBack)
-        CapsuleButton(Icons.Rounded.Home, "Домой", onHome)
-        CapsuleButton(Icons.Rounded.ViewCarousel, "Недавние", onRecents)
+        CapsuleButton(Icons.AutoMirrored.Rounded.ArrowBack, "Назад", buttonSize, onBack)
+        CapsuleButton(Icons.Rounded.Home, "Домой", buttonSize, onHome)
+        CapsuleButton(Icons.Rounded.ViewCarousel, "Недавние", buttonSize, onRecents)
     }
 }
 
@@ -45,12 +56,13 @@ fun SystemNavigationCapsule(
 private fun CapsuleButton(
     icon: ImageVector,
     contentDescription: String,
+    buttonSize: Dp,
     onClick: () -> Unit
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(48.dp)
+            .size(buttonSize)
             .clip(CircleShape)
             .background(Color(0x26FFFFFF))
             .clickable(onClick = onClick)
@@ -59,7 +71,7 @@ private fun CapsuleButton(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = Color.White,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(buttonSize * 0.5f)
         )
     }
 }

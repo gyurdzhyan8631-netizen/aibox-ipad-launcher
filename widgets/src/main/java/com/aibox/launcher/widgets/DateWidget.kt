@@ -37,19 +37,19 @@ fun DateWidget(modifier: Modifier = Modifier) {
                 text = today.format(DateTimeFormatter.ofPattern("EEEE", ru))
                     .replaceFirstChar { it.titlecase(ru) },
                 color = tokens.accent,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = today.dayOfMonth.toString(),
                 color = tokens.textPrimary,
-                fontSize = 52.sp,
+                fontSize = widgetNumberSize(),
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = today.format(DateTimeFormatter.ofPattern("LLLL yyyy", ru)),
                 color = tokens.textSecondary,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
         }
     }

@@ -60,19 +60,19 @@ fun ConnectionWidget(modifier: Modifier = Modifier) {
             Text(
                 text = "Сеть",
                 color = tokens.accent,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = info.title,
                 color = tokens.textPrimary,
-                fontSize = 34.sp,
+                fontSize = widgetNumberSize() * 0.7f,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = info.subtitle,
                 color = tokens.textSecondary,
-                fontSize = 14.sp
+                fontSize = 13.sp
             )
         }
     }

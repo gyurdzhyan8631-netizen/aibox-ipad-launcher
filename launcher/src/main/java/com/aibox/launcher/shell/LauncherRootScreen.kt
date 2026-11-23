@@ -1,5 +1,6 @@
 package com.aibox.launcher.shell
 
+import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,7 @@ import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.dock.CarouselDockBar
 import com.aibox.launcher.desktop.HomeScreenPage
+import com.aibox.launcher.dock.DockDefaults
 import com.aibox.launcher.dock.SystemNavigationCapsule
 import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.system.SystemActionsHandler
@@ -45,6 +48,15 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
     val systemActions = remember { SystemActionsHandler(context) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
+    val compact = LocalConfiguration.current.screenHeightDp < 480
+
+    val prefs = remember { context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE) }
+    var panelScale by remember {
+        mutableFloatStateOf(
+            prefs.getFloat("panel_scale", DockDefaults.DEFAULT_SCALE)
+                .coerceIn(DockDefaults.MIN_SCALE, DockDefaults.MAX_SCALE)
+        )
+    }
 
     val apps by produceState(initialValue = emptyList<InstalledApp>()) {
         value = InstalledAppsRepository(context).loadLaunchableApps()
@@ -86,7 +98,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = 18.dp),
+                .padding(horizontal = 28.dp, vertical = if (compact) 10.dp else 18.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             // 2. Top Header: Big iPadOS Clock, Date, Weather & Control Center Trigger
@@ -98,7 +110,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 Column {
                     Text(
                         text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = 56.sp,
+                        fontSize = if (compact) 44.sp else 56.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
@@ -173,13 +185,13 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 }
             }
 
-            // 4. Bottom Area: System Capsule + Carousel Dock Bar
+            // 4. Bottom area: system capsule + dock (always the same height)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SystemNavigationCapsule(
+                    scale = panelScale,
                     onBack = {
                         when {
                             showSettings -> showSettings = false
@@ -198,11 +210,15 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                     onRecents = { systemActions.triggerRecents() }
                 )
 
-                Spacer(Modifier.width(20.dp))
+                Spacer(Modifier.width(14.dp))
 
                 CarouselDockBar(
+                    apps = apps,
+                    onLaunchApp = launchApp,
                     onOpenDrawer = { showAppDrawer = !showAppDrawer },
-                    onOpenSettings = { showSettings = !showSettings }
+                    onOpenSettings = { showSettings = !showSettings },
+                    modifier = Modifier.weight(1f),
+                    scale = panelScale
                 )
             }
         }
@@ -216,6 +232,18 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 launchApp(app)
             },
             onDismiss = { showAppDrawer = false }
+        )
+
+        // 6. Panel size settings overlay
+        PanelSettingsOverlay(
+            visible = showSettings,
+            scale = panelScale,
+            onScaleChange = { value ->
+                val v = value.coerceIn(DockDefaults.MIN_SCALE, DockDefaults.MAX_SCALE)
+                panelScale = v
+                prefs.edit().putFloat("panel_scale", v).apply()
+            },
+            onDismiss = { showSettings = false }
         )
     }
 }

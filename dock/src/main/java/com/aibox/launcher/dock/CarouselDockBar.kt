@@ -1,134 +1,149 @@
 package com.aibox.launcher.dock
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Navigation
-import androidx.compose.material.icons.rounded.Phone
-import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlin.math.abs
+import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.icons.AppIconView
 
-data class DockSlot(
-    val id: String,
-    val title: String,
-    val icon: ImageVector,
-    val accent: Color,
-    val onClick: () -> Unit
-)
-
+/**
+ * Нижний док.
+ * Слева закреплена кнопка «Все приложения» (не прокручивается и открывает табло приложений),
+ * затем прокручиваемый ряд всех приложений, справа кнопка размера панелей.
+ */
 @Composable
 fun CarouselDockBar(
+    apps: List<InstalledApp>,
+    onLaunchApp: (InstalledApp) -> Unit,
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scale: Float = DockDefaults.DEFAULT_SCALE
 ) {
-    var focusedIndex by remember { mutableIntStateOf(2) }
-    val listState = rememberLazyListState()
+    val panelHeight = DockDefaults.panelHeight(scale)
+    val iconSize = maxOf(panelHeight - 40.dp, 26.dp)
+    val shape = RoundedCornerShape(panelHeight * 0.38f)
 
-    val slots = remember {
-        listOf(
-            DockSlot("nav", "Навигация", Icons.Rounded.Navigation, Color(0xFF0A84FF)) {},
-            DockSlot("music", "Музыка", Icons.Rounded.MusicNote, Color(0xFFFF375F)) {},
-            DockSlot("drawer", "Приложения", Icons.Rounded.Apps, Color(0xFF5E5CE6), onOpenDrawer),
-            DockSlot("phone", "Связь", Icons.Rounded.Phone, Color(0xFF30D158)) {},
-            DockSlot("settings", "Настройки", Icons.Rounded.Settings, Color(0xFF8E8E93), onOpenSettings)
-        )
-    }
-
-    Box(
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
-            .clip(RoundedCornerShape(32.dp))
+            .height(panelHeight)
+            .clip(shape)
             .background(Color(0x661C1C1E))
-            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(32.dp))
-            .padding(horizontal = 20.dp, vertical = 10.dp)
+            .border(1.dp, Color(0x33FFFFFF), shape)
+            .padding(horizontal = 10.dp)
     ) {
+        DockShortcut(
+            icon = Icons.Rounded.Apps,
+            title = "Все",
+            accent = Color(0xFF5E5CE6),
+            iconSize = iconSize,
+            onClick = onOpenDrawer
+        )
+        DockDivider(iconSize)
+
         LazyRow(
-            state = listState,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            itemsIndexed(slots) { index, slot ->
-                val distance = abs(index - focusedIndex)
-                val targetScale = when (distance) {
-                    0 -> 1.18f
-                    1 -> 0.96f
-                    else -> 0.84f
-                }
-                val targetAlpha = when (distance) {
-                    0 -> 1.0f
-                    1 -> 0.82f
-                    else -> 0.62f
-                }
-
-                val scale by animateFloatAsState(
-                    targetValue = targetScale,
-                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                    label = "dockScale"
+            items(apps, key = { it.packageName }) { app ->
+                AppIconView(
+                    app = app,
+                    onClick = { onLaunchApp(app) },
+                    iconSize = iconSize
                 )
-                val alpha by animateFloatAsState(
-                    targetValue = targetAlpha,
-                    label = "dockAlpha"
-                )
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .graphicsLayer {
-                            scaleX = scale
-                            scaleY = scale
-                            this.alpha = alpha
-                        }
-                        .clip(RoundedCornerShape(20.dp))
-                        .clickable {
-                            focusedIndex = index
-                            slot.onClick()
-                        }
-                        .padding(6.dp)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(slot.accent)
-                    ) {
-                        Icon(
-                            imageVector = slot.icon,
-                            contentDescription = slot.title,
-                            tint = Color.White,
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = slot.title,
-                        color = Color.White.copy(alpha = 0.9f),
-                        fontSize = 11.sp
-                    )
-                }
             }
         }
+
+        DockDivider(iconSize)
+        DockShortcut(
+            icon = Icons.Rounded.Tune,
+            title = "Размер",
+            accent = Color(0xFF8E8E93),
+            iconSize = iconSize,
+            onClick = onOpenSettings
+        )
+    }
+}
+
+@Composable
+private fun DockDivider(height: Dp) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 6.dp)
+            .width(1.dp)
+            .height(height)
+            .background(Color(0x33FFFFFF))
+    )
+}
+
+@Composable
+private fun DockShortcut(
+    icon: ImageVector,
+    title: String,
+    accent: Color,
+    iconSize: Dp,
+    onClick: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(iconSize)
+                .clip(RoundedCornerShape(iconSize * 0.22f))
+                .background(accent)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = Color.White,
+                modifier = Modifier.size(iconSize * 0.55f)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(maxOf(iconSize + 16.dp, 52.dp))
+        )
     }
 }

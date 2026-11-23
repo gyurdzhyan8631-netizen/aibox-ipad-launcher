@@ -8,7 +8,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 
 /** Стеклянная карточка — основа всех виджетов. */
@@ -24,8 +27,15 @@ fun GlassCard(
             .clip(shape)
             .background(tokens.cardBackground)
             .border(1.dp, tokens.panelBorder, shape)
-            .padding(18.dp)
+            .padding(14.dp)
     ) {
         content()
     }
+}
+
+/** Размер крупных цифр в виджетах: на низких экранах (AI Box, телефон в ландшафте) меньше. */
+@Composable
+fun widgetNumberSize(): TextUnit {
+    val heightDp = LocalConfiguration.current.screenHeightDp
+    return if (heightDp < 480) 36.sp else 52.sp
 }
