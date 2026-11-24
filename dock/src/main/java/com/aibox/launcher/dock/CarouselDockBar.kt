@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.maxOf
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.icons.AppIconView
 import kotlin.math.abs
@@ -53,7 +52,7 @@ fun CarouselDockBar(
     scale: Float = DockDefaults.DEFAULT_SCALE
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
-    val iconSize = maxOf(panelHeight - 40.dp, 26.dp)
+    val iconSize = (panelHeight - 40.dp).coerceAtLeast(26.dp)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
 
     val listState = rememberLazyListState()
