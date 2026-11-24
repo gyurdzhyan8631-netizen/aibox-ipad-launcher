@@ -57,6 +57,17 @@ jobs:
           fi
           chmod +x ./gradlew
 
+      # Постоянный ключ подписи: создаётся один раз и сохраняется в репозитории,
+      # чтобы новые сборки устанавливались поверх старых.
+      - name: Ensure stable debug keystore
+        run: |
+          if [ ! -f app/debug.keystore ]; then
+            keytool -genkeypair -v -keystore app/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 36500 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
       - name: Commit changes back to the repository
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
@@ -64,7 +75,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if ! git diff --cached --quiet; then
-            git commit -m "Apply patch and update Gradle wrapper"
+            git commit -m "Apply patch and update build files"
             git push
           else
             echo "nothing to commit"
@@ -72,7 +83,7 @@ jobs:
 
       - name: Build Debug APK
         shell: bash
-        run: ./gradlew assembleDebug --console=plain 2>&1 | tee build.log
+        run: ./gradlew assembleDebug --console=plain -PciBuild=${{ github.run_number }} 2>&1 | tee build.log
 
       # При ошибке выводит короткий список ошибок компиляции: вкладка Summary → Annotations.
       - name: Show compile errors
@@ -94,3 +105,16 @@ jobs:
         with:
           name: aibox-launcher-debug-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      # Релиз с APK: из него приложение берёт обновления (Настройки → Обновление).
+      - name: Publish release for in-app updates
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls app/build/outputs/apk/debug/*.apk | head -n1)
+          cp "$APK" aibox-launcher.apk
+          gh release create "build-${{ github.run_number }}" aibox-launcher.apk \
+            --title "Сборка ${{ github.run_number }}" \
+            --notes "$(git log -1 --pretty=%s)" \
+            --latest
