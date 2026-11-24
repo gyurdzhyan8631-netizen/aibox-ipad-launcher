@@ -279,7 +279,6 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 launchApp(app)
             },
             onDismiss = { showAppDrawer = false },
-            onGoHome = goHome
         )
 
         // 6. Panel size settings overlay
