@@ -11,6 +11,13 @@
 - **Система виджетов и полная персонализация** — кастомные PNG-логотипы без белого фона, скругления, тени, прозрачность, 5 визуальных тем.
 - **Автомобильный режим** — крупные элементы управления и минимальное отвлечение водителя.
 
+## Статус разработки
+
+Версия `0.3.0-alpha`. Уже работает: два рабочих стола с виджетами и приложениями, меню всех приложений с поиском,
+док с прокруткой и настраиваемым размером, погода с офлайн-кэшем, обои по времени суток и погоде.
+Ещё не сделано: виджеты музыки и спидометра, темы и кастомные иконки, режим вождения.
+Подробности: [docs/ROADMAP.md](docs/ROADMAP.md) и [docs/SAFETY.md](docs/SAFETY.md).
+
 ## Архитектура проекта
 Проект построен по многомодульной архитектуре (Kotlin + Jetpack Compose + MVVM + Coroutines/Flow + Room + DataStore):
 ```text
@@ -43,8 +50,11 @@
 ### Команды сборки
 ```bash
 # Клонирование репозитория
-git clone https://github.com/your-username/aibox-ipad-launcher.git
+git clone https://github.com/gyurdzhyan8631-netizen/aibox-ipad-launcher.git
 cd aibox-ipad-launcher
+
+# Один раз сгенерировать Gradle Wrapper (если нет gradlew)
+gradle wrapper --gradle-version 8.9
 
 # Сборка Debug APK
 ./gradlew assembleDebug

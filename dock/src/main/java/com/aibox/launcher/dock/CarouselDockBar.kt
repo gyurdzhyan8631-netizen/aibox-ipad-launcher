@@ -1,47 +1,44 @@
 package com.aibox.launcher.dock
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.icons.AppIconView
-import kotlin.math.abs
 
+/**
+ * Нижний док.
+ * Слева закреплена кнопка «Все приложения» (не прокручивается и открывает табло приложений),
+ * затем прокручиваемый ряд всех приложений, справа кнопка размера панелей.
+ */
 @Composable
 fun CarouselDockBar(
     apps: List<InstalledApp>,
@@ -52,30 +49,8 @@ fun CarouselDockBar(
     scale: Float = DockDefaults.DEFAULT_SCALE
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
-    val iconSize = (panelHeight - 40.dp).coerceAtLeast(26.dp)
+    val iconSize = maxOf(panelHeight - 40.dp, 26.dp)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
-
-    val listState = rememberLazyListState()
-    var selectedPackageName by remember { mutableStateOf<String?>(null) }
-
-    val centeredIndex by remember(listState, apps.size) {
-        derivedStateOf {
-            val layoutInfo = listState.layoutInfo
-            if (layoutInfo.visibleItemsInfo.isEmpty() || apps.isEmpty()) {
-                0
-            } else {
-                val viewportCenter = (layoutInfo.viewportStartOffset + layoutInfo.viewportEndOffset) / 2f
-                layoutInfo.visibleItemsInfo.minByOrNull { item ->
-                    val itemCenter = item.offset + item.size / 2f
-                    abs(itemCenter - viewportCenter)
-                }?.index ?: 0
-            }
-        }
-    }
-
-    val isScrolling by remember {
-        derivedStateOf { listState.isScrollInProgress }
-    }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -88,103 +63,33 @@ fun CarouselDockBar(
     ) {
         DockShortcut(
             icon = Icons.Rounded.Apps,
-            contentDescription = "Все",
+            title = "Все",
             accent = Color(0xFF5E5CE6),
             iconSize = iconSize,
-            isSelected = false,
             onClick = onOpenDrawer
         )
-
         DockDivider(iconSize)
 
         LazyRow(
-            state = listState,
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            itemsIndexed(apps, key = { _, app -> app.packageName }) { index, app ->
-                val isCentered = index == centeredIndex
-                val isSelected = (selectedPackageName == app.packageName) || (!isScrolling && isCentered)
-                val neighborDistance = abs(index - centeredIndex)
-
-                val targetScale = when {
-                    isSelected -> 1.18f
-                    isCentered -> 1.10f
-                    neighborDistance == 1 -> 0.94f
-                    else -> 0.88f
-                }
-
-                val targetDimAlpha = when {
-                    isSelected -> 1f
-                    isCentered && !isScrolling -> 1f
-                    neighborDistance == 1 -> if (isScrolling) 0.62f else 0.78f
-                    else -> if (isScrolling) 0.45f else 0.65f
-                }
-
-                val animatedScale by animateFloatAsState(
-                    targetValue = targetScale,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow
-                    ),
-                    label = "dock_icon_scale"
+            items(apps, key = { it.packageName }) { app ->
+                AppIconView(
+                    app = app,
+                    onClick = { onLaunchApp(app) },
+                    iconSize = iconSize
                 )
-
-                val animatedAlpha by animateFloatAsState(
-                    targetValue = targetDimAlpha,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMedium
-                    ),
-                    label = "dock_icon_alpha"
-                )
-
-                val darkOverlayAlpha = (1f - animatedAlpha).coerceIn(0f, 0.55f) * 0.65f
-
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(iconSize * 1.22f)
-                        .scale(animatedScale)
-                        .alpha(animatedAlpha)
-                ) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(iconSize)
-                            .clip(RoundedCornerShape(iconSize * 0.22f))
-                    ) {
-                        AppIconView(
-                            app = app,
-                            onClick = {
-                                selectedPackageName = app.packageName
-                                onLaunchApp(app)
-                            }
-                        )
-                    }
-
-                    if (darkOverlayAlpha > 0.01f) {
-                        Box(
-                            modifier = Modifier
-                                .size(iconSize)
-                                .clip(RoundedCornerShape(iconSize * 0.22f))
-                                .background(Color.Black.copy(alpha = darkOverlayAlpha))
-                        )
-                    }
-                }
             }
         }
 
         DockDivider(iconSize)
-
         DockShortcut(
             icon = Icons.Rounded.Tune,
-            contentDescription = "Размер",
+            title = "Размер",
             accent = Color(0xFF8E8E93),
             iconSize = iconSize,
-            isSelected = false,
             onClick = onOpenSettings
         )
     }
@@ -204,38 +109,41 @@ private fun DockDivider(height: Dp) {
 @Composable
 private fun DockShortcut(
     icon: ImageVector,
-    contentDescription: String,
+    title: String,
     accent: Color,
     iconSize: Dp,
-    isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val scale by animateFloatAsState(
-        targetValue = if (isSelected) 1.15f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
-        ),
-        label = "dock_shortcut_scale"
-    )
-
-    Box(
-        contentAlignment = Alignment.Center,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .padding(horizontal = 4.dp)
-            .size(iconSize)
-            .scale(scale)
-            .clip(RoundedCornerShape(iconSize * 0.22f))
-            .background(accent)
+            .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
+            .padding(8.dp)
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = Color.White,
+        Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .fillMaxSize()
-                .padding(iconSize * 0.22f)
+                .size(iconSize)
+                .clip(RoundedCornerShape(iconSize * 0.22f))
+                .background(accent)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = Color.White,
+                modifier = Modifier.size(iconSize * 0.55f)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = title,
+            color = Color.White,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(maxOf(iconSize + 16.dp, 52.dp))
         )
     }
 }
