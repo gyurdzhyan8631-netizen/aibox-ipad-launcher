@@ -145,6 +145,14 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
         else -> DayPeriod.NIGHT
     }
 
+    val goHome: () -> Unit = {
+        showSettings = false
+        showAppDrawer = false
+        showControlCenter = false
+        scope.launch { pagerState.animateScrollToPage(0) }
+        systemActions.triggerHome()
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // 1. Live Weather & Time Background
         DynamicWeatherWallpaper(
@@ -245,14 +253,9 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                             else -> systemActions.triggerBack()
                         }
                     },
-                    onHome = {
-                        showSettings = false
-                        showAppDrawer = false
-                        showControlCenter = false
-                        scope.launch { pagerState.animateScrollToPage(0) }
-                        systemActions.triggerHome()
-                    },
-                    onRecents = { systemActions.triggerRecents() }
+                    onHome = goHome,
+                    onRecents = { systemActions.triggerRecents() },
+                    onGoHome = goHome
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
