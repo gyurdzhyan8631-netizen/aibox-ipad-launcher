@@ -5,14 +5,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.WallpaperTheme
+import com.aibox.launcher.core.model.WallpaperType
+import java.io.File
 
 enum class ClockStyle(val id: String, val title: String) {
     BOLD("bold", "Жирный"),
     LIGHT("light", "Тонкий");
 
     companion object {
-        fun fromId(id: String?): ClockStyle = entries.firstOrNull { it.id == id } ?: BOLD
+        fun fromId(id: String?): ClockStyle = entries.firstOrNull { it.id == id } ?: LIGHT
     }
 }
 
@@ -41,11 +44,18 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var city by mutableStateOf(prefs.getString(K_CITY, "") ?: "")
         private set
 
-    var showDateWidget by mutableStateOf(prefs.getBoolean(K_W_DATE, true))
+    var page1Widgets by mutableStateOf(
+        DesktopWidget.parse(prefs.getString(K_P1, "date,power,network") ?: "")
+    )
         private set
-    var showPowerWidget by mutableStateOf(prefs.getBoolean(K_W_POWER, true))
+    var page2Widgets by mutableStateOf(
+        DesktopWidget.parse(prefs.getString(K_P2, "weather,music") ?: "")
+    )
         private set
-    var showNetworkWidget by mutableStateOf(prefs.getBoolean(K_W_NET, true))
+
+    var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
+        private set
+    var wallpaperPath by mutableStateOf(prefs.getString(K_WP_PATH, "") ?: "")
         private set
 
     var hiddenInDock by mutableStateOf(
@@ -93,15 +103,28 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_CITY, city).apply()
     }
 
-    fun updateWidgets(date: Boolean? = null, power: Boolean? = null, network: Boolean? = null) {
-        if (date != null) showDateWidget = date
-        if (power != null) showPowerWidget = power
-        if (network != null) showNetworkWidget = network
-        prefs.edit()
-            .putBoolean(K_W_DATE, showDateWidget)
-            .putBoolean(K_W_POWER, showPowerWidget)
-            .putBoolean(K_W_NET, showNetworkWidget)
-            .apply()
+    fun setWidget(page: Int, widget: DesktopWidget, enabled: Boolean) {
+        val current = if (page == 1) page1Widgets else page2Widgets
+        val updated = DesktopWidget.entries.filter { w -> if (w == widget) enabled else w in current }
+        val csv = updated.joinToString(",") { it.id }
+        if (page == 1) {
+            page1Widgets = updated
+            prefs.edit().putString(K_P1, csv).apply()
+        } else {
+            page2Widgets = updated
+            prefs.edit().putString(K_P2, csv).apply()
+        }
+    }
+
+    fun selectWallpaper(type: WallpaperType, path: String = "") {
+        wallpaperType = type
+        wallpaperPath = path
+        prefs.edit().putString(K_WP_TYPE, type.id).putString(K_WP_PATH, path).apply()
+    }
+
+    /** Файл обоев удалён с устройства — вернуться к теме оформления. */
+    fun wallpaperFileDeleted(path: String) {
+        if (wallpaperPath == path) selectWallpaper(WallpaperType.THEME)
     }
 
     fun setShownInDock(packageName: String, shown: Boolean) {
@@ -119,9 +142,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
         const val K_CITY = "weather_city"
-        const val K_W_DATE = "widget_date"
-        const val K_W_POWER = "widget_power"
-        const val K_W_NET = "widget_network"
+        const val K_P1 = "widgets_page1"
+        const val K_P2 = "widgets_page2"
+        const val K_WP_TYPE = "wallpaper_type"
+        const val K_WP_PATH = "wallpaper_path"
         const val K_HIDDEN = "dock_hidden"
     }
 }

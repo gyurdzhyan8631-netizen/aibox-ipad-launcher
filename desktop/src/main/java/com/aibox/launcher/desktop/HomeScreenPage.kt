@@ -6,85 +6,61 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aibox.launcher.core.model.InstalledApp
-import com.aibox.launcher.icons.AppIconView
+import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.widgets.BatteryWidget
 import com.aibox.launcher.widgets.ConnectionWidget
 import com.aibox.launcher.widgets.DateWidget
+import com.aibox.launcher.widgets.MusicWidget
+import com.aibox.launcher.widgets.WeatherWidget
+import com.aibox.launcher.widgets.WeatherWidgetInfo
 
 /**
- * Рабочий стол.
- * Страница 0: виджеты на всю высоту. Страница 1: все приложения (прокручивается).
- * Снизу оставлено место под индикатор страниц.
+ * Рабочий стол (первый и второй устроены одинаково): ряд виджетов, выбранных в настройках.
+ * Страница занимает весь экран; [topPadding] и [bottomPadding] оставляют место под шапку и нижние панели,
+ * поэтому ничего не обрезается жёсткой границей.
  */
 @Composable
 fun HomeScreenPage(
-    pageIndex: Int,
-    apps: List<InstalledApp>,
-    onLaunchApp: (InstalledApp) -> Unit,
-    modifier: Modifier = Modifier,
-    iconScale: Float = 1f,
-    showDateWidget: Boolean = true,
-    showPowerWidget: Boolean = true,
-    showNetworkWidget: Boolean = true
+    widgets: List<DesktopWidget>,
+    weather: WeatherWidgetInfo,
+    onOpenMusic: () -> Unit,
+    topPadding: Dp,
+    bottomPadding: Dp,
+    modifier: Modifier = Modifier
 ) {
-    val content = modifier
+    val area = modifier
         .fillMaxSize()
-        .padding(bottom = 22.dp)
+        .padding(start = 28.dp, end = 28.dp, top = topPadding, bottom = bottomPadding)
 
-    if (pageIndex == 0) {
-        if (!showDateWidget && !showPowerWidget && !showNetworkWidget) {
-            Box(modifier = content, contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Виджеты выключены.\nВключить: Настройки → Главная.",
-                    color = Color.White.copy(alpha = 0.7f),
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            Row(
-                modifier = content,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                if (showDateWidget) DateWidget(modifier = Modifier.weight(1f).fillMaxHeight())
-                if (showPowerWidget) BatteryWidget(modifier = Modifier.weight(1f).fillMaxHeight())
-                if (showNetworkWidget) ConnectionWidget(modifier = Modifier.weight(1f).fillMaxHeight())
-            }
-        }
-    } else if (apps.isEmpty()) {
-        Box(modifier = content, contentAlignment = Alignment.Center) {
+    if (widgets.isEmpty()) {
+        Box(modifier = area, contentAlignment = Alignment.Center) {
             Text(
-                text = "Приложения загружаются…",
+                text = "Рабочий стол пуст.\nДобавить виджеты: Настройки → Главная.",
                 color = Color.White.copy(alpha = 0.7f),
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center
             )
         }
     } else {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 88.dp * iconScale),
-            modifier = content,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            items(apps, key = { it.packageName }) { app ->
-                AppIconView(
-                    app = app,
-                    iconSize = 56.dp * iconScale,
-                    onClick = { onLaunchApp(app) }
-                )
+        Row(modifier = area, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            widgets.forEach { widget ->
+                val cell = Modifier.weight(1f).fillMaxHeight()
+                when (widget) {
+                    DesktopWidget.DATE -> DateWidget(modifier = cell)
+                    DesktopWidget.POWER -> BatteryWidget(modifier = cell)
+                    DesktopWidget.NETWORK -> ConnectionWidget(modifier = cell)
+                    DesktopWidget.WEATHER -> WeatherWidget(info = weather, modifier = cell)
+                    DesktopWidget.MUSIC -> MusicWidget(onOpenPlayer = onOpenMusic, modifier = cell)
+                }
             }
         }
     }

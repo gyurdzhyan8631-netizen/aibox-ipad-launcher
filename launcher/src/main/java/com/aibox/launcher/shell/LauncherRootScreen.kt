@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -36,8 +38,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -56,11 +61,14 @@ import com.aibox.launcher.settings.ClockStyle
 import com.aibox.launcher.settings.LauncherSettings
 import com.aibox.launcher.settings.SettingsScreen
 import com.aibox.launcher.system.SystemActionsHandler
-import com.aibox.launcher.wallpaper.DynamicWeatherWallpaper
+import com.aibox.launcher.wallpaper.WallpaperLayer
+import com.aibox.launcher.widgets.WeatherWidgetInfo
 import com.aibox.launcher.weather.CityNotFoundException
 import com.aibox.launcher.weather.WeatherRepository
 import com.aibox.launcher.weather.ageText
 import com.aibox.launcher.weather.formatTemp
+import com.aibox.launcher.weather.isStale
+import com.aibox.launcher.weather.titleRu
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -176,6 +184,32 @@ fun LauncherRootScreen() {
         else -> DayPeriod.NIGHT
     }
 
+    val greeting = when (dayPeriod) {
+        DayPeriod.MORNING -> "ДОБРОЕ УТРО"
+        DayPeriod.DAY -> "ДОБРЫЙ ДЕНЬ"
+        DayPeriod.EVENING -> "ДОБРЫЙ ВЕЧЕР"
+        DayPeriod.NIGHT -> "ДОБРОЙ НОЧИ"
+    }
+
+    val weatherInfo = when {
+        city.isBlank() -> WeatherWidgetInfo(condition = "Укажите город", place = "Настройки → Главная")
+        shownWeather != null -> WeatherWidgetInfo(
+            temp = formatTemp(shownWeather.tempC),
+            condition = shownWeather.condition.titleRu(),
+            place = shownWeather.cityName,
+            note = if (isStale(shownWeather.fetchedAtMillis, nowMillis)) "нет связи" else ""
+        )
+        else -> WeatherWidgetInfo(condition = "Загрузка…", place = city)
+    }
+
+    // Высоты шапки и нижней панели: рабочие столы занимают весь экран, а виджеты не залезают под панели.
+    val density = LocalDensity.current
+    var headerPx by remember { mutableIntStateOf(0) }
+    var bottomPx by remember { mutableIntStateOf(0) }
+    val verticalPad = if (compact) 10.dp else 18.dp
+    val pageTop = with(density) { headerPx.toDp() } + verticalPad + 8.dp
+    val pageBottom = with(density) { bottomPx.toDp() } + verticalPad + 24.dp
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -213,37 +247,49 @@ fun LauncherRootScreen() {
             }
     ) {
         // 1. Обои: тема + время суток + погода
-        DynamicWeatherWallpaper(
+        WallpaperLayer(
+            type = settings.wallpaperType,
+            path = settings.wallpaperPath,
             dayPeriod = dayPeriod,
             weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
             theme = settings.theme
         )
 
+        // 2. Рабочие столы 1 и 2 — на весь экран, ничего не обрезается жёсткой границей
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize()
+        ) { page ->
+            HomeScreenPage(
+                widgets = if (page == 0) settings.page1Widgets else settings.page2Widgets,
+                weather = weatherInfo,
+                onOpenMusic = openMusic,
+                topPadding = pageTop,
+                bottomPadding = pageBottom
+            )
+        }
+
+        // 3. Шапка и нижние панели лежат поверх рабочих столов
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 28.dp, vertical = if (compact) 10.dp else 18.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 28.dp, vertical = verticalPad)
         ) {
-            // 2. Шапка: часы, дата, значки состояния, шторка
+            // Шапка: приветствие + часы + дата, значки состояния, шторка
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { headerPx = it.height },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = (if (compact) 44f else 56f).sp * settings.clockScale,
-                        fontWeight = if (settings.clockStyle == ClockStyle.BOLD) FontWeight.Bold else FontWeight.Light,
-                        color = Color.White
-                    )
-                    Text(
-                        text = now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru"))),
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                }
+                ClockHeader(
+                    greeting = greeting,
+                    now = now,
+                    compact = compact,
+                    scale = settings.clockScale,
+                    bold = settings.clockStyle == ClockStyle.BOLD
+                )
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -268,45 +314,33 @@ fun LauncherRootScreen() {
                 }
             }
 
-            // 3. Рабочие столы 1 и 2
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    HomeScreenPage(
-                        pageIndex = page,
-                        apps = apps,
-                        onLaunchApp = launchApp,
-                        iconScale = settings.iconScale,
-                        showDateWidget = settings.showDateWidget,
-                        showPowerWidget = settings.showPowerWidget,
-                        showNetworkWidget = settings.showNetworkWidget
-                    )
-                }
+            // Пустое место между шапкой и низом: касания проходят к рабочим столам
+            Spacer(modifier = Modifier.weight(1f))
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 8.dp)
-                ) {
-                    repeat(2) { idx ->
-                        val active = pagerState.currentPage == idx
-                        Box(
-                            modifier = Modifier
-                                .height(6.dp)
-                                .width(if (active) 22.dp else 6.dp)
-                                .clip(CircleShape)
-                                .background(if (active) Color.White else Color.White.copy(alpha = 0.4f))
-                        )
-                    }
+            // Индикатор страниц
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 8.dp)
+            ) {
+                repeat(2) { idx ->
+                    val active = pagerState.currentPage == idx
+                    Box(
+                        modifier = Modifier
+                            .height(6.dp)
+                            .width(if (active) 22.dp else 6.dp)
+                            .clip(CircleShape)
+                            .background(if (active) Color.White else Color.White.copy(alpha = 0.4f))
+                    )
                 }
             }
 
-            // 4. Низ: капсула кнопок + док (одной высоты)
+            // Низ: капсула кнопок + док (одной высоты)
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onSizeChanged { bottomPx = it.height },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SystemNavigationCapsule(
@@ -351,7 +385,8 @@ fun LauncherRootScreen() {
                 launchApp(app)
             },
             onDismiss = { showAppDrawer = false },
-            iconScale = settings.iconScale
+            iconScale = settings.iconScale,
+            bottomInset = with(density) { bottomPx.toDp() } + verticalPad + 14.dp
         )
 
         // 6. Шторка быстрого доступа
@@ -378,5 +413,64 @@ fun LauncherRootScreen() {
             weatherStatus = weatherStatus,
             onClose = { showSettings = false }
         )
+    }
+}
+
+
+/** Приветствие, крупные тонкие часы и дата в одну строку с разделителем. */
+@Composable
+private fun ClockHeader(
+    greeting: String,
+    now: LocalDateTime,
+    compact: Boolean,
+    scale: Float,
+    bold: Boolean
+) {
+    val ru = Locale("ru")
+    val weight = if (bold) FontWeight.SemiBold else FontWeight.Light
+    val timeSize = (if (compact) 48f else 64f).sp * scale
+    val smallSize = (if (compact) 14f else 16f).sp * scale
+
+    Column {
+        Text(
+            text = greeting,
+            color = Color.White.copy(alpha = 0.9f),
+            fontSize = smallSize * 0.85f,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 3.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
+                color = Color.White,
+                fontSize = timeSize,
+                fontWeight = weight
+            )
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .width(1.dp)
+                    .height(timeSize.value.dp * 0.7f)
+                    .background(Color.White.copy(alpha = 0.35f))
+            )
+            Column {
+                Text(
+                    text = now.format(DateTimeFormatter.ofPattern("EEEE", ru)).uppercase(ru),
+                    color = Color.White,
+                    fontSize = smallSize,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 2.sp
+                )
+                Text(
+                    text = now.format(DateTimeFormatter.ofPattern("d MMMM", ru)).uppercase(ru),
+                    color = Color.White,
+                    fontSize = smallSize,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 2.sp
+                )
+            }
+        }
     }
 }

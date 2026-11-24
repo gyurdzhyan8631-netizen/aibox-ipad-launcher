@@ -7,6 +7,9 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -27,6 +30,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Image as ImageIcon
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Check
@@ -72,12 +80,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.withContext
 import java.time.LocalTime
 import kotlin.math.roundToInt
@@ -157,31 +173,42 @@ internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
         }
     }
 
-    SectionTitle("Виджеты главного экрана")
+    WidgetsGroup(settings, page = 1, title = "Рабочий стол 1")
+    WidgetsGroup(settings, page = 2, title = "Рабочий стол 2")
+    HintText("Оба рабочих стола — полноценные: на каждом можно собрать свой набор виджетов.")
+}
+
+private fun widgetIcon(widget: DesktopWidget) = when (widget) {
+    DesktopWidget.DATE -> Icons.Rounded.DateRange
+    DesktopWidget.POWER -> Icons.Rounded.BatteryFull
+    DesktopWidget.NETWORK -> Icons.Rounded.Wifi
+    DesktopWidget.WEATHER -> Icons.Rounded.Cloud
+    DesktopWidget.MUSIC -> Icons.Rounded.MusicNote
+}
+
+private fun widgetColor(widget: DesktopWidget) = when (widget) {
+    DesktopWidget.DATE -> Color(0xFFFF9F0A)
+    DesktopWidget.POWER -> Color(0xFF30D158)
+    DesktopWidget.NETWORK -> Color(0xFF0A84FF)
+    DesktopWidget.WEATHER -> Color(0xFF64D2FF)
+    DesktopWidget.MUSIC -> Color(0xFFFF375F)
+}
+
+@Composable
+private fun WidgetsGroup(settings: LauncherSettings, page: Int, title: String) {
+    val enabled = if (page == 1) settings.page1Widgets else settings.page2Widgets
+    SectionTitle(title)
     SettingsGroup {
-        SwitchRow(
-            icon = Icons.Rounded.DateRange,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Дата",
-            checked = settings.showDateWidget,
-            onCheckedChange = { settings.updateWidgets(date = it) }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.BatteryFull,
-            iconColor = Color(0xFF30D158),
-            title = "Питание",
-            checked = settings.showPowerWidget,
-            onCheckedChange = { settings.updateWidgets(power = it) }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Wifi,
-            iconColor = Color(0xFF0A84FF),
-            title = "Сеть",
-            checked = settings.showNetworkWidget,
-            onCheckedChange = { settings.updateWidgets(network = it) }
-        )
+        DesktopWidget.entries.forEachIndexed { index, widget ->
+            if (index > 0) RowDivider()
+            SwitchRow(
+                icon = widgetIcon(widget),
+                iconColor = widgetColor(widget),
+                title = widget.title,
+                checked = widget in enabled,
+                onCheckedChange = { settings.setWidget(page, widget, it) }
+            )
+        }
     }
 }
 
@@ -377,21 +404,41 @@ internal fun PersonalizationSection(
     SettingsGroup {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenSection(SettingsSection.WALLPAPERS) }
+                .padding(14.dp)
         ) {
             Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(width = 150.dp, height = 72.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.verticalGradient(listOf(previewTop, previewBottom)))
-            )
+                    .background(
+                        if (settings.wallpaperType == WallpaperType.THEME) {
+                            Brush.verticalGradient(listOf(previewTop, previewBottom))
+                        } else {
+                            Brush.verticalGradient(listOf(Color(0xFF2A2E3B), Color(0xFF14161E)))
+                        }
+                    )
+            ) {
+                if (settings.wallpaperType != WallpaperType.THEME) {
+                    Text(settings.wallpaperType.title, color = Color.White, fontSize = 12.sp)
+                }
+            }
             Spacer(Modifier.width(16.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text("Обои", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Тема: ${settings.theme.title}",
+                    if (settings.wallpaperType == WallpaperType.THEME) "Тема: ${settings.theme.title}"
+                    else settings.wallpaperType.title,
                     color = SettingsColors.textSecondary,
                     fontSize = 14.sp
+                )
+                Text(
+                    "Добавить фото, живые обои, системные обои",
+                    color = SettingsColors.textSecondary,
+                    fontSize = 12.sp
                 )
             }
         }
@@ -404,8 +451,11 @@ internal fun PersonalizationSection(
             rowThemes.forEach { theme ->
                 ThemeCard(
                     theme = theme,
-                    selected = theme == settings.theme,
-                    onClick = { settings.updateTheme(theme) },
+                    selected = theme == settings.theme && settings.wallpaperType == WallpaperType.THEME,
+                    onClick = {
+                        settings.updateTheme(theme)
+                        settings.selectWallpaper(WallpaperType.THEME)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -719,4 +769,226 @@ internal fun AboutSection() {
             value = "${config.screenWidthDp}×${config.screenHeightDp} dp", showChevron = false)
     }
     HintText("github.com/gyurdzhyan8631-netizen/aibox-ipad-launcher")
+}
+
+
+// ---------------------------------------------------------------- Обои
+
+@Composable
+internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (SettingsSection) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var items by remember { mutableStateOf(WallpaperStore.list(context)) }
+    var busy by remember { mutableStateOf(false) }
+
+    fun importPicked(uri: android.net.Uri?, video: Boolean) {
+        if (uri == null) return
+        busy = true
+        scope.launch {
+            val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                WallpaperStore.import(context, uri, video)
+            }
+            busy = false
+            items = WallpaperStore.list(context)
+            if (file != null) {
+                settings.selectWallpaper(if (video) WallpaperType.VIDEO else WallpaperType.IMAGE, file.absolutePath)
+            } else {
+                Toast.makeText(context, "Не удалось добавить файл", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        importPicked(uri, video = false)
+    }
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        importPicked(uri, video = true)
+    }
+    fun launchPicker(video: Boolean) {
+        runCatching { if (video) pickVideo.launch("video/*") else pickImage.launch("image/*") }
+            .onFailure {
+                Toast.makeText(context, "На устройстве нет приложения для выбора файлов", Toast.LENGTH_LONG).show()
+            }
+    }
+
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.Palette,
+            iconColor = Color(0xFF5E5CE6),
+            title = "Темы оформления",
+            value = if (settings.wallpaperType == WallpaperType.THEME) "Выбрано" else "",
+            subtitle = "Градиенты, включая «Авто (по солнцу)»",
+            onClick = {
+                settings.selectWallpaper(WallpaperType.THEME)
+                onOpenSection(SettingsSection.PERSONALIZATION)
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.ImageIcon,
+            iconColor = Color(0xFF30D158),
+            title = "Добавить фото",
+            subtitle = if (busy) "Копирование…" else "Свой снимок как обои главного экрана",
+            onClick = { launchPicker(video = false) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Videocam,
+            iconColor = Color(0xFFFF375F),
+            title = "Добавить живые обои (видео)",
+            subtitle = "Видео без звука играет по кругу. Расходует больше ресурсов",
+            onClick = { launchPicker(video = true) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Apps,
+            iconColor = Color(0xFF0A84FF),
+            title = "Системные и живые обои Android",
+            value = if (settings.wallpaperType == WallpaperType.SYSTEM) "Выбрано" else "",
+            subtitle = "Откроется системный выбор обоев",
+            onClick = {
+                settings.selectWallpaper(WallpaperType.SYSTEM)
+                val chooser = android.content.Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                runCatching { context.startActivity(chooser) }.onFailure {
+                    SystemSettingsLauncher.open(context, android.content.Intent.ACTION_SET_WALLPAPER)
+                }
+            }
+        )
+    }
+
+    SectionTitle("Мои обои")
+    if (items.isEmpty()) {
+        HintText("Пока ничего не добавлено.")
+    } else {
+        SettingsGroup {
+            items.forEachIndexed { index, file ->
+                if (index > 0) RowDivider()
+                val video = WallpaperStore.isVideo(file)
+                val selected = settings.wallpaperPath == file.absolutePath &&
+                    (settings.wallpaperType == WallpaperType.IMAGE || settings.wallpaperType == WallpaperType.VIDEO)
+                val stamp = remember(file) {
+                    SimpleDateFormat("d MMM, HH:mm", Locale("ru")).format(Date(file.lastModified()))
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            settings.selectWallpaper(
+                                if (video) WallpaperType.VIDEO else WallpaperType.IMAGE,
+                                file.absolutePath
+                            )
+                        }
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    IconBadge(
+                        icon = if (video) Icons.Rounded.Videocam else Icons.Rounded.ImageIcon,
+                        color = if (video) Color(0xFFFF375F) else Color(0xFF30D158)
+                    )
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (video) "Живые обои · $stamp" else "Фото · $stamp",
+                            color = Color.White,
+                            fontSize = 17.sp
+                        )
+                        if (selected) {
+                            Text("Используются сейчас", color = SettingsColors.accent, fontSize = 12.sp)
+                        }
+                    }
+                    Icon(
+                        imageVector = Icons.Rounded.Delete,
+                        contentDescription = "Удалить",
+                        tint = Color(0xFFFF453A),
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable {
+                                file.delete()
+                                settings.wallpaperFileDeleted(file.absolutePath)
+                                items = WallpaperStore.list(context)
+                            }
+                            .padding(6.dp)
+                    )
+                }
+            }
+        }
+    }
+    HintText("Системные живые обои показываются через прозрачное окно лаунчера и зависят от прошивки устройства.")
+}
+
+// ---------------------------------------------------------------- Обновление
+
+@Composable
+internal fun UpdateSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val info = remember {
+        runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
+    }
+    val currentBuild = remember { info?.longVersionCode?.toInt() ?: 0 }
+    val versionName = info?.versionName ?: "—"
+
+    var status by remember { mutableStateOf("Нажмите, чтобы проверить") }
+    var checking by remember { mutableStateOf(false) }
+    var latest by remember { mutableStateOf<UpdateInfo?>(null) }
+
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.Info,
+            iconColor = Color(0xFF8E8E93),
+            title = "Установленная версия",
+            value = "$versionName (сборка $currentBuild)",
+            showChevron = false
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Refresh,
+            iconColor = Color(0xFF30D158),
+            title = "Проверить обновления",
+            subtitle = status,
+            onClick = {
+                if (!checking) {
+                    checking = true
+                    status = "Проверяем…"
+                    scope.launch {
+                        val result = UpdateChecker.fetchLatest()
+                        checking = false
+                        result.onSuccess { found ->
+                            latest = found
+                            status = if (found.build > currentBuild) {
+                                "Доступна новая сборка ${found.build}"
+                            } else {
+                                "Установлена последняя версия"
+                            }
+                        }
+                        result.onFailure { error ->
+                            status = if (error is NoReleasesException) {
+                                "Релизов пока нет"
+                            } else {
+                                "Не удалось проверить: нет связи с GitHub"
+                            }
+                        }
+                    }
+                }
+            }
+        )
+    }
+
+    val available = latest
+    if (available != null && available.build > currentBuild) {
+        SectionTitle("Доступно обновление")
+        SettingsGroup {
+            SettingsRow(
+                icon = Icons.Rounded.Refresh,
+                iconColor = SettingsColors.accent,
+                title = "Скачать и установить",
+                subtitle = "Сборка ${available.build}" +
+                    if (available.notes.isNotBlank()) " · ${available.notes.take(80)}" else "",
+                onClick = { UpdateChecker.downloadAndInstall(context, available) }
+            )
+        }
+    }
+    HintText("Обновление скачивается с GitHub и устанавливается поверх текущей версии. Настройки сохраняются.")
 }

@@ -28,6 +28,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Star
@@ -68,8 +70,10 @@ enum class SettingsSection(
     DISPLAY("display", "Экран и яркость", Icons.Rounded.WbSunny, Color(0xFF0A84FF)),
     SOUND("sound", "Звук", Icons.Rounded.VolumeUp, Color(0xFFFF375F)),
     PERSONALIZATION("personalization", "Персонализация", Icons.Rounded.Palette, Color(0xFF5E5CE6)),
+    WALLPAPERS("wallpapers", "Обои", Icons.Rounded.Image, Color(0xFF30B0C7)),
     APPS("apps", "Приложения", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
     SYSTEM("system", "Система", Icons.Rounded.Info, Color(0xFF8E8E93)),
+    UPDATE("update", "Обновление", Icons.Rounded.Refresh, Color(0xFF30D158)),
     ABOUT("about", "О лаунчере", Icons.Rounded.Star, Color(0xFF8E8E93));
 
     companion object {
@@ -183,8 +187,10 @@ fun SettingsScreen(
                                 onPick = { picker = it },
                                 onOpenSection = { section = it }
                             )
+                            SettingsSection.WALLPAPERS -> WallpaperSection(settings, onOpenSection = { section = it })
                             SettingsSection.APPS -> AppsSection(settings, apps)
                             SettingsSection.SYSTEM -> SystemSection()
+                            SettingsSection.UPDATE -> UpdateSection()
                             SettingsSection.ABOUT -> AboutSection()
                         }
                     }

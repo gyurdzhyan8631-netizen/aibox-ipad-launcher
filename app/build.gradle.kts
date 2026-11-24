@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Номер сборки передаёт GitHub Actions (-PciBuild=N); по нему приложение узнаёт о новых версиях.
+val ciBuild = (project.findProperty("ciBuild") as String?)?.toIntOrNull() ?: 1
+
 android {
     namespace = "com.aibox.launcher"
     compileSdk = 35
@@ -12,10 +15,23 @@ android {
         applicationId = "com.aibox.launcher"
         minSdk = 31
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0-alpha"
+        versionCode = ciBuild
+        versionName = "0.6.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    // Постоянный ключ подписи debug-сборок: обновления ставятся поверх без удаления приложения.
+    signingConfigs {
+        getByName("debug") {
+            val keystore = file("debug.keystore")
+            if (keystore.exists()) {
+                storeFile = keystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
     }
 
     buildTypes {

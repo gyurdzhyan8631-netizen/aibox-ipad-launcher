@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +67,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -141,7 +143,7 @@ fun QuickPanelOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xCC070B16))
+                .background(Color(0xEE070B16))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -149,10 +151,11 @@ fun QuickPanelOverlay(
                 )
         ) {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 56.dp, vertical = 14.dp)
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.82f)
+                    .widthIn(max = 640.dp)
             ) {
                 // --- шапка: время, дата, «Готово» ---
                 Row(
@@ -162,14 +165,14 @@ fun QuickPanelOverlay(
                     Text(
                         text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
                         color = Color.White,
-                        fontSize = 26.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
                         text = now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
                             .replaceFirstChar { it.titlecase(Locale("ru")) },
                         color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         modifier = Modifier
                             .weight(1f)
                             .padding(start = 14.dp)
@@ -188,9 +191,9 @@ fun QuickPanelOverlay(
 
                 // --- главный ряд ---
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
-                        .weight(1f)
+                        .height(150.dp)
                         .fillMaxWidth()
                 ) {
                     ConnectivityCard(
@@ -242,10 +245,10 @@ fun QuickPanelOverlay(
 
                 // --- нижний ряд быстрых кнопок ---
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(84.dp)
+                        .height(66.dp)
                 ) {
                     QuickTile(Icons.Rounded.Palette, "Авто", { onOpenSettings("personalization") }, Modifier.weight(1f))
                     QuickTile(Icons.Rounded.DesktopWindows, "Обои", { onOpenSettings("personalization") }, Modifier.weight(1f))
@@ -275,7 +278,7 @@ private fun ConnectivityCard(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
             .glass()
-            .padding(14.dp)
+            .padding(12.dp)
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -284,10 +287,10 @@ private fun ConnectivityCard(
                 .fillMaxWidth()
         ) {
             RoundToggle(active = vpn, onClick = onVpn, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Text("VPN", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("VPN", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
             RoundToggle(active = wifi, onClick = onWifi, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Icon(Icons.Rounded.Wifi, contentDescription = "Wi-Fi", tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Rounded.Wifi, contentDescription = "Wi-Fi", tint = Color.White, modifier = Modifier.size(22.dp))
             }
         }
         Row(
@@ -297,10 +300,10 @@ private fun ConnectivityCard(
                 .fillMaxWidth()
         ) {
             RoundToggle(active = bluetooth, onClick = onBluetooth, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Icon(Icons.Rounded.Bluetooth, contentDescription = "Bluetooth", tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Rounded.Bluetooth, contentDescription = "Bluetooth", tint = Color.White, modifier = Modifier.size(22.dp))
             }
             RoundToggle(active = mobile, onClick = onMobile, modifier = Modifier.weight(1f).fillMaxHeight()) {
-                Icon(Icons.Rounded.SignalCellularAlt, contentDescription = "Мобильная сеть", tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Rounded.SignalCellularAlt, contentDescription = "Мобильная сеть", tint = Color.White, modifier = Modifier.size(22.dp))
             }
         }
     }
@@ -341,7 +344,7 @@ private fun MusicCard(
         verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
             .glass()
-            .padding(14.dp)
+            .padding(12.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -353,20 +356,22 @@ private fun MusicCard(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(Brush.linearGradient(listOf(Color(0xFF7B3FF2), Color(0xFFE040C8))))
             ) {
-                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
             }
-            Column(modifier = Modifier.padding(start = 12.dp)) {
+            Column(modifier = Modifier.padding(start = 10.dp)) {
                 Text(
                     text = if (playing) "Воспроизводится" else "Не исполняется",
                     color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Text(text = "Музыка", color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp)
+                Text(text = "Музыка", color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
             }
         }
         Row(
@@ -386,11 +391,11 @@ private fun MediaButton(icon: ImageVector, description: String, onClick: () -> U
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
-            .size(52.dp)
+            .size(40.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick)
     ) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(34.dp))
+        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(26.dp))
     }
 }
 
@@ -432,8 +437,8 @@ private fun LevelSlider(
             tint = Color(0xFF3A3A3C),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 14.dp)
-                .size(24.dp)
+                .padding(bottom = 12.dp)
+                .size(20.dp)
         )
     }
 }
@@ -458,10 +463,11 @@ private fun QuickTile(
         Text(
             text = label,
             color = Color.White,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 6.dp)
+            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }

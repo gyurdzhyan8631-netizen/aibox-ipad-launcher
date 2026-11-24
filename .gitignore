@@ -61,3 +61,6 @@ captures/
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# Постоянный debug-ключ (нужен, чтобы обновления ставились поверх)
+!app/debug.keystore

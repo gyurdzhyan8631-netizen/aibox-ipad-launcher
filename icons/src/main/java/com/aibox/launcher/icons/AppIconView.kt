@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
@@ -69,7 +70,9 @@ fun AppIconView(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 64.dp,
-    showLabel: Boolean = true
+    showLabel: Boolean = true,
+    labelColor: Color = Color.White,
+    labelSize: TextUnit = 12.sp
 ) {
     val icon = rememberAppIcon(app.packageName)
     Column(
@@ -100,8 +103,8 @@ fun AppIconView(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = app.label,
-                color = Color.White,
-                fontSize = 12.sp,
+                color = labelColor,
+                fontSize = labelSize,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
