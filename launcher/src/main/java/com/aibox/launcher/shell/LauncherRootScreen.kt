@@ -165,11 +165,9 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    WeatherChip(
-                        city = city,
-                        snapshot = shownWeather,
-                        nowMillis = nowMillis,
-                        onClick = { showSettings = true }
+                    StatusIconsCapsule(
+                        status = rememberStatusState(),
+                        onClick = onOpenControlCenter
                     )
 
                     Box(

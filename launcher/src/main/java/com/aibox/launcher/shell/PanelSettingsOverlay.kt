@@ -120,7 +120,7 @@ fun PanelSettingsOverlay(
 
                 // --- Город для погоды ---
                 Text(
-                    text = "Город для погоды",
+                    text = "Город (погода для обоев)",
                     color = Color.White,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium
