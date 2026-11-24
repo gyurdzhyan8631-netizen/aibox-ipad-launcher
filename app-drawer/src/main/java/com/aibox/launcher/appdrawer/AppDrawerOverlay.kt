@@ -45,7 +45,8 @@ fun AppDrawerOverlay(
     apps: List<InstalledApp>,
     onLaunchApp: (InstalledApp) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconScale: Float = 1f
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -84,7 +85,7 @@ fun AppDrawerOverlay(
                         .fillMaxWidth(0.5f)
                 )
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 104.dp),
+                    columns = GridCells.Adaptive(minSize = 104.dp * iconScale),
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -92,7 +93,7 @@ fun AppDrawerOverlay(
                     items(filtered, key = { it.packageName }) { app ->
                         AppIconView(
                             app = app,
-                            iconSize = 72.dp,
+                            iconSize = 72.dp * iconScale,
                             onClick = { onLaunchApp(app) }
                         )
                     }

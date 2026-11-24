@@ -12,19 +12,41 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import com.aibox.launcher.core.model.DayPeriod
+import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WeatherCondition
 
 /**
- * Обои: один градиент по времени суток, подкрашенный под погоду.
- * Никакой покадровой анимации — цвет плавно меняется только когда меняется время суток или погода,
- * поэтому нагрузка на GPU автомобильного железа минимальна.
+ * Цвета фиксированной темы (верх, низ). Для AUTO возвращает null —
+ * тогда цвета считаются по времени суток и погоде.
+ */
+fun wallpaperThemeColors(theme: WallpaperTheme): Pair<Color, Color>? = when (theme) {
+    WallpaperTheme.STYLISH -> Color(0xFF1B4BC4) to Color(0xFF0A1A55)
+    WallpaperTheme.DARK -> Color(0xFF2A2C33) to Color(0xFF08090C)
+    WallpaperTheme.BRIGHT -> Color(0xFF8A3CF0) to Color(0xFFFF5C9E)
+    WallpaperTheme.NATURE -> Color(0xFF2F8C74) to Color(0xFF123C2E)
+    WallpaperTheme.DAY -> Color(0xFF5CB6F5) to Color(0xFF2C7BD6)
+    WallpaperTheme.DAWN -> Color(0xFFFF9F68) to Color(0xFFB04C7A)
+    WallpaperTheme.NIGHT -> Color(0xFF0B1230) to Color(0xFF03040A)
+    WallpaperTheme.AUTO -> null
+}
+
+/** Цвета для карточки-превью темы (у AUTO — условный закат). */
+fun wallpaperPreviewColors(theme: WallpaperTheme): Pair<Color, Color> =
+    wallpaperThemeColors(theme) ?: (Color(0xFFE89B72) to Color(0xFF1E62B5))
+
+/**
+ * Обои: один градиент. Никакой покадровой анимации — цвет плавно меняется только
+ * при смене темы, времени суток или погоды, поэтому нагрузка на GPU минимальна.
  */
 @Composable
 fun DynamicWeatherWallpaper(
     dayPeriod: DayPeriod,
     weather: WeatherCondition,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    theme: WallpaperTheme = WallpaperTheme.AUTO
 ) {
+    val fixed = wallpaperThemeColors(theme)
+
     val topBase = when (dayPeriod) {
         DayPeriod.MORNING -> Color(0xFF2B5876)
         DayPeriod.DAY -> Color(0xFF1E62B5)
@@ -50,8 +72,11 @@ fun DynamicWeatherWallpaper(
         WeatherCondition.WIND -> Color(0xFF7C8DA6) to 0.20f
     }
 
-    val topColor by animateColorAsState(lerp(topBase, tint, amount), tween(3000), label = "skyTop")
-    val bottomColor by animateColorAsState(lerp(bottomBase, tint, amount), tween(3000), label = "skyBottom")
+    val topTarget = fixed?.first ?: lerp(topBase, tint, amount)
+    val bottomTarget = fixed?.second ?: lerp(bottomBase, tint, amount)
+
+    val topColor by animateColorAsState(topTarget, tween(3000), label = "skyTop")
+    val bottomColor by animateColorAsState(bottomTarget, tween(3000), label = "skyBottom")
 
     Box(
         modifier = modifier

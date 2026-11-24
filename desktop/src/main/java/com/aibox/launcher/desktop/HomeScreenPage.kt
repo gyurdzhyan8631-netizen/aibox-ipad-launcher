@@ -33,20 +33,35 @@ fun HomeScreenPage(
     pageIndex: Int,
     apps: List<InstalledApp>,
     onLaunchApp: (InstalledApp) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    iconScale: Float = 1f,
+    showDateWidget: Boolean = true,
+    showPowerWidget: Boolean = true,
+    showNetworkWidget: Boolean = true
 ) {
     val content = modifier
         .fillMaxSize()
         .padding(bottom = 22.dp)
 
     if (pageIndex == 0) {
-        Row(
-            modifier = content,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            DateWidget(modifier = Modifier.weight(1f).fillMaxHeight())
-            BatteryWidget(modifier = Modifier.weight(1f).fillMaxHeight())
-            ConnectionWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+        if (!showDateWidget && !showPowerWidget && !showNetworkWidget) {
+            Box(modifier = content, contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Виджеты выключены.\nВключить: Настройки → Главная.",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+        } else {
+            Row(
+                modifier = content,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                if (showDateWidget) DateWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+                if (showPowerWidget) BatteryWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+                if (showNetworkWidget) ConnectionWidget(modifier = Modifier.weight(1f).fillMaxHeight())
+            }
         }
     } else if (apps.isEmpty()) {
         Box(modifier = content, contentAlignment = Alignment.Center) {
@@ -59,7 +74,7 @@ fun HomeScreenPage(
         }
     } else {
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 88.dp),
+            columns = GridCells.Adaptive(minSize = 88.dp * iconScale),
             modifier = content,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -67,7 +82,7 @@ fun HomeScreenPage(
             items(apps, key = { it.packageName }) { app ->
                 AppIconView(
                     app = app,
-                    iconSize = 56.dp,
+                    iconSize = 56.dp * iconScale,
                     onClick = { onLaunchApp(app) }
                 )
             }
