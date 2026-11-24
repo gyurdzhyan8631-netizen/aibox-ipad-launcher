@@ -4,16 +4,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.aibox.launcher.controlcenter.TopSwipeControlCenterHost
 import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
 import com.aibox.launcher.shell.LauncherRootScreen
-import com.aibox.launcher.wallpaper.SlowWallpaper
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,16 +19,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AiBoxLauncherTheme {
-                // Оборачиваем все в Box, чтобы фон был позади интерфейса
-                Box(modifier = Modifier.fillMaxSize()) {
-                    
-                    // Наш медленный динамический фон
-                    SlowWallpaper() 
-                    
-                    // Основной интерфейс лаунчера
-                    TopSwipeControlCenterHost { openControlCenter ->
-                        LauncherRootScreen(onOpenControlCenter = openControlCenter)
-                    }
+                TopSwipeControlCenterHost { openControlCenter ->
+                    LauncherRootScreen(onOpenControlCenter = openControlCenter)
                 }
             }
         }

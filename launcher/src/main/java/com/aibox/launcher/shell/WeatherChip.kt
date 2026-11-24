@@ -13,7 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Cloud
-import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material.icons.rounded.Opacity
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -40,7 +40,7 @@ private fun WeatherCondition.icon(): ImageVector = when (this) {
     WeatherCondition.FOG,
     WeatherCondition.WIND -> Icons.Rounded.Cloud
     WeatherCondition.RAIN,
-    WeatherCondition.HEAVY_RAIN -> Icons.Rounded.WaterDrop
+    WeatherCondition.HEAVY_RAIN -> Icons.Rounded.Opacity
     WeatherCondition.SNOW -> Icons.Rounded.AcUnit
     WeatherCondition.THUNDERSTORM -> Icons.Rounded.Bolt
 }
