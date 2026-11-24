@@ -28,27 +28,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # Если в корне репозитория лежит patch.zip: распаковать, удалить лишнее, убрать архив.
-      - name: Apply patch.zip
-        run: |
-          if [ -f patch.zip ]; then
-            rm -rf _patch_tmp
-            unzip -oq patch.zip -d _patch_tmp
-            if [ -f _patch_tmp/.apply-delete.txt ]; then
-              while IFS= read -r p || [ -n "$p" ]; do
-                case "$p" in
-                  ""|/*|*..*) continue ;;
-                esac
-                rm -rf -- "$p"
-              done < _patch_tmp/.apply-delete.txt
-              rm -f _patch_tmp/.apply-delete.txt
-            fi
-            cp -a _patch_tmp/. .
-            rm -rf _patch_tmp patch.zip
-            echo "patch.zip applied"
-          else
-            echo "no patch.zip"
-          fi
+      
 
       - name: Generate Gradle wrapper if missing
         run: |
