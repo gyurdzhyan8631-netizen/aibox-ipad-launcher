@@ -254,8 +254,7 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                         }
                     },
                     onHome = goHome,
-                    onRecents = { systemActions.triggerRecents() },
-                    onGoHome = goHome
+                    onRecents = { systemActions.triggerRecents() }
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
@@ -279,7 +278,8 @@ fun LauncherRootScreen(onOpenControlCenter: () -> Unit = {}) {
                 showAppDrawer = false
                 launchApp(app)
             },
-            onDismiss = { showAppDrawer = false }
+            onDismiss = { showAppDrawer = false },
+            onGoHome = goHome
         )
 
         // 6. Panel size settings overlay
