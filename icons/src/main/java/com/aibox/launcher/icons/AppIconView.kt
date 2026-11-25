@@ -71,7 +71,8 @@ fun AppIconView(
     modifier: Modifier = Modifier,
     iconSize: Dp = 64.dp,
     showLabel: Boolean = true,
-    customIconUri: String? = null
+    customIconUri: String? = null,
+    cornerRadiusFraction: Float = 0.22f
 ) {
     val icon = rememberAppIcon(app.packageName)
     Column(
@@ -81,7 +82,7 @@ fun AppIconView(
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val shape = RoundedCornerShape(iconSize * 0.22f)
+        val shape = RoundedCornerShape(iconSize * cornerRadiusFraction.coerceIn(0f, 0.5f))
         if (customIconUri != null) {
             AsyncImage(
                 model = customIconUri,

@@ -53,6 +53,7 @@ import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
+import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
 import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.CarouselDockBar
 import com.aibox.launcher.dock.SystemNavigationCapsule
@@ -204,12 +205,16 @@ fun LauncherRootScreen(
         else -> DayPeriod.NIGHT
     }
 
-    CompositionLocalProvider(
-        LocalDensity provides Density(
-            density = density.density * settings.interfaceScale,
-            fontScale = density.fontScale
-        )
+    AiBoxLauncherTheme(
+        style = settings.visualStyle,
+        fontFamily = settings.font.family
     ) {
+        CompositionLocalProvider(
+            LocalDensity provides Density(
+                density = density.density * settings.interfaceScale,
+                fontScale = density.fontScale
+            )
+        ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -240,7 +245,7 @@ fun LauncherRootScreen(
                                     showQuickPanel = true
                                     startedAtTop = false
                                     accumulated = 0f
-                                }
+                                  }
                             }
                         }
                     )
@@ -322,7 +327,9 @@ fun LauncherRootScreen(
                         showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
                         showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
                         showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
-                        homeScreenApps = settings.homeScreenApps
+                        homeScreenApps = settings.homeScreenApps,
+                        customIcons = customDockIcons,
+                        iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
                     )
                 }
 
@@ -380,7 +387,8 @@ fun LauncherRootScreen(
                     modifier = Modifier.weight(1f),
                     scale = settings.panelScale,
                     customIcons = customDockIcons,
-                    onReorderApps = settings::updateDockAppOrder
+                    onReorderApps = settings::updateDockAppOrder,
+                    iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
                 )
             }
         }
@@ -394,7 +402,9 @@ fun LauncherRootScreen(
                 launchApp(app)
             },
             onDismiss = { showAppDrawer = false },
-            iconScale = settings.iconScale
+            iconScale = settings.iconScale,
+            customIcons = customDockIcons,
+            iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
         )
 
         // 6. Шторка быстрого доступа
@@ -429,5 +439,6 @@ fun LauncherRootScreen(
                 onClose = { showSettings = false }
             )
         }
+      }
     }
 }

@@ -8,6 +8,12 @@ enum class VisualStyle(val title: String) {
     AUTOMOTIVE_PREMIUM("Automotive Premium")
 }
 
+enum class IconShape(val title: String, val cornerRadiusFraction: Float) {
+    ROUNDED("Скруглённые", 0.22f),
+    CIRCLE("Круглые", 0.5f),
+    SQUARE("Квадратные", 0f)
+}
+
 enum class AnimationIntensity(val title: String, val scaleFactor: Float) {
     DISABLED("Отключено", 0f),
     MINIMAL("Минимальная", 0.5f),

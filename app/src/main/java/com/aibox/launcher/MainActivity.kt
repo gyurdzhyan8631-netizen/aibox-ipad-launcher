@@ -19,7 +19,6 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
 import com.aibox.launcher.shell.LauncherRootScreen
 
 class MainActivity : ComponentActivity() {
@@ -55,17 +54,15 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            AiBoxLauncherTheme {
-                LauncherRootScreen(
-                    appWidgetHost = widgetHost,
-                    widgetIdsByScreen = desktopWidgetIds,
-                    onAddWidget = ::startWidgetPicker,
-                    onRemoveWidget = ::removeWidget,
-                    customDockIcons = customDockIcons,
-                    onChooseDockIcon = ::chooseDockIcon,
-                    onClearDockIcon = ::clearDockIcon
-                )
-            }
+            LauncherRootScreen(
+                appWidgetHost = widgetHost,
+                widgetIdsByScreen = desktopWidgetIds,
+                onAddWidget = ::startWidgetPicker,
+                onRemoveWidget = ::removeWidget,
+                customDockIcons = customDockIcons,
+                onChooseDockIcon = ::chooseDockIcon,
+                onClearDockIcon = ::clearDockIcon
+            )
         }
     }
 

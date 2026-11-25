@@ -50,7 +50,9 @@ fun HomeScreenPage(
     showDateWidgetOnSecondScreen: Boolean = false,
     showPowerWidgetOnSecondScreen: Boolean = false,
     showNetworkWidgetOnSecondScreen: Boolean = false,
-    homeScreenApps: Set<String> = emptySet()
+    homeScreenApps: Set<String> = emptySet(),
+    customIcons: Map<String, String> = emptyMap(),
+    iconCornerRadiusFraction: Float = 0.22f
 ) {
     val content = modifier
         .fillMaxSize()
@@ -91,6 +93,8 @@ fun HomeScreenPage(
                     onLaunchApp = onLaunchApp,
                     iconScale = iconScale,
                     showLabels = false,
+                    customIcons = customIcons,
+                    iconCornerRadiusFraction = iconCornerRadiusFraction,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f / sectionCount)
@@ -138,6 +142,8 @@ fun HomeScreenPage(
                         onLaunchApp = onLaunchApp,
                         iconScale = iconScale,
                         showLabels = false,
+                        customIcons = customIcons,
+                        iconCornerRadiusFraction = iconCornerRadiusFraction,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -227,6 +233,8 @@ private fun AppGrid(
     onLaunchApp: (InstalledApp) -> Unit,
     iconScale: Float,
     showLabels: Boolean,
+    customIcons: Map<String, String>,
+    iconCornerRadiusFraction: Float,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(
@@ -240,6 +248,8 @@ private fun AppGrid(
                 app = app,
                 iconSize = 56.dp * iconScale,
                 showLabel = showLabels,
+                customIconUri = customIcons[app.packageName],
+                cornerRadiusFraction = iconCornerRadiusFraction,
                 onClick = { onLaunchApp(app) }
             )
         }

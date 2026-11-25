@@ -74,6 +74,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.model.IconShape
+import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
@@ -531,9 +533,59 @@ internal fun PersonalizationSection(
             icon = Icons.Rounded.Apps,
             iconColor = Color(0xFF5E5CE6),
             title = "Стиль иконок",
-            value = "Стеклянный",
-            subtitle = "Другие стили появятся позже",
-            enabled = false
+            value = settings.iconShape.title,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Форма иконок",
+                        options = IconShape.entries.map { PickerOption(it.name, it.title) },
+                        selectedKey = settings.iconShape.name,
+                        onSelect = { selected ->
+                            settings.updateIconShape(
+                                IconShape.entries.first { it.name == selected }
+                            )
+                        }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Palette,
+            iconColor = Color(0xFF5E5CE6),
+            title = "Стиль интерфейса",
+            value = settings.visualStyle.title,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Стиль интерфейса",
+                        options = VisualStyle.entries.map { PickerOption(it.name, it.title) },
+                        selectedKey = settings.visualStyle.name,
+                        onSelect = { selected ->
+                            settings.updateVisualStyle(
+                                VisualStyle.entries.first { it.name == selected }
+                            )
+                        }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Language,
+            iconColor = Color(0xFF30D158),
+            title = "Шрифт",
+            value = settings.font.title,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Шрифт интерфейса",
+                        options = LauncherFont.entries.map { PickerOption(it.name, it.title) },
+                        selectedKey = settings.font.name,
+                        onSelect = { settings.updateFont(LauncherFont.fromId(it)) }
+                    )
+                )
+            }
         )
         RowDivider()
         SettingsRow(
@@ -606,12 +658,12 @@ internal fun PersonalizationSection(
         )
         RowDivider()
         SettingsRow(
-            icon = Icons.Rounded.Palette,
-            iconColor = Color(0xFF5E5CE6),
-            title = "Пак иконок",
-            value = "Системные",
-            subtitle = "Свои паки иконок появятся позже",
-            enabled = false
+            icon = Icons.Rounded.Apps,
+            iconColor = Color(0xFFBF5AF2),
+            title = "Приложения и значки",
+            value = "Настроить",
+            subtitle = "Добавляйте приложения в док и задавайте свои изображения",
+            onClick = { onOpenSection(SettingsSection.APPS) }
         )
         RowDivider()
         SettingsRow(
@@ -724,13 +776,16 @@ internal fun AppsSection(
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 val customIcon = customDockIcons[app.packageName]
+                val iconShape = RoundedCornerShape(
+                    40.dp * settings.iconShape.cornerRadiusFraction
+                )
                 if (customIcon != null) {
                     AsyncImage(
                         model = customIcon,
                         contentDescription = null,
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(iconShape)
                     )
                 } else if (icon != null) {
                     Image(
@@ -738,13 +793,13 @@ internal fun AppsSection(
                         contentDescription = null,
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(iconShape)
                     )
                 } else {
                     Box(
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(iconShape)
                             .background(Color.White.copy(alpha = 0.12f))
                     )
                 }

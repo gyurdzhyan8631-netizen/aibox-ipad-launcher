@@ -48,7 +48,9 @@ fun AppDrawerOverlay(
     onLaunchApp: (InstalledApp) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    iconScale: Float = 1f
+    iconScale: Float = 1f,
+    customIcons: Map<String, String> = emptyMap(),
+    iconCornerRadiusFraction: Float = 0.22f
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -108,6 +110,8 @@ fun AppDrawerOverlay(
                             AppIconView(
                                 app = app,
                                 iconSize = 56.dp * iconScale,
+                                customIconUri = customIcons[app.packageName],
+                                cornerRadiusFraction = iconCornerRadiusFraction,
                                 onClick = { onLaunchApp(app) }
                             )
                         }

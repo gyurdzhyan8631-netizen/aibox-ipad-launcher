@@ -97,39 +97,50 @@ fun tokensForStyle(style: VisualStyle): LauncherStyleTokens = when (style) {
     )
 }
 
-private val AppleTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 60.sp,
-        letterSpacing = (-1.2).sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 24.sp,
-        letterSpacing = (-0.4).sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Medium,
-        fontSize = 16.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Normal,
-        fontSize = 14.sp
-    ),
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp
+private fun appleTypography(fontFamily: FontFamily): Typography {
+    val base = Typography()
+    fun TextStyle.withLauncherFont() = copy(fontFamily = fontFamily)
+
+    return base.copy(
+        displayLarge = base.displayLarge.withLauncherFont().copy(
+            fontWeight = FontWeight.Bold,
+            fontSize = 60.sp,
+            letterSpacing = (-1.2).sp
+        ),
+        displayMedium = base.displayMedium.withLauncherFont(),
+        displaySmall = base.displaySmall.withLauncherFont(),
+        headlineLarge = base.headlineLarge.withLauncherFont(),
+        headlineMedium = base.headlineMedium.withLauncherFont().copy(
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            letterSpacing = (-0.4).sp
+        ),
+        headlineSmall = base.headlineSmall.withLauncherFont(),
+        titleLarge = base.titleLarge.withLauncherFont(),
+        titleMedium = base.titleMedium.withLauncherFont().copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 16.sp
+        ),
+        titleSmall = base.titleSmall.withLauncherFont(),
+        bodyLarge = base.bodyLarge.withLauncherFont(),
+        bodyMedium = base.bodyMedium.withLauncherFont().copy(
+            fontWeight = FontWeight.Normal,
+            fontSize = 14.sp
+        ),
+        bodySmall = base.bodySmall.withLauncherFont(),
+        labelLarge = base.labelLarge.withLauncherFont(),
+        labelMedium = base.labelMedium.withLauncherFont(),
+        labelSmall = base.labelSmall.withLauncherFont().copy(
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp
+        )
     )
-)
+}
 
 @Composable
 fun AiBoxLauncherTheme(
     style: VisualStyle = VisualStyle.IPADOS_MINIMAL,
+    fontFamily: FontFamily = FontFamily.SansSerif,
     content: @Composable () -> Unit
 ) {
     val tokens = tokensForStyle(style)
@@ -162,7 +173,7 @@ fun AiBoxLauncherTheme(
     CompositionLocalProvider(LocalLauncherTokens provides tokens) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = AppleTypography,
+            typography = appleTypography(fontFamily),
             shapes = shapes,
             content = content
         )

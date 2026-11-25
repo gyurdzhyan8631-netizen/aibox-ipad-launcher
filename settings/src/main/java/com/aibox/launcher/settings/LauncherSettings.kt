@@ -5,7 +5,21 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.font.FontFamily
+import com.aibox.launcher.core.model.IconShape
+import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WallpaperTheme
+
+enum class LauncherFont(val title: String, val family: FontFamily) {
+    SANS_SERIF("Без засечек", FontFamily.SansSerif),
+    SERIF("С засечками", FontFamily.Serif),
+    MONOSPACE("Моноширинный", FontFamily.Monospace),
+    CURSIVE("Рукописный", FontFamily.Cursive);
+
+    companion object {
+        fun fromId(id: String?): LauncherFont = entries.firstOrNull { it.name == id } ?: SANS_SERIF
+    }
+}
 
 enum class ClockStyle(val id: String, val title: String) {
     BOLD("bold", "Жирный"),
@@ -32,6 +46,20 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         private set
 
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
+        private set
+    var visualStyle by mutableStateOf(
+        prefs.getString(K_VISUAL_STYLE, null)?.let { stored ->
+            VisualStyle.entries.firstOrNull { it.name == stored }
+        } ?: VisualStyle.IPADOS_MINIMAL
+    )
+        private set
+    var iconShape by mutableStateOf(
+        prefs.getString(K_ICON_SHAPE, null)?.let { stored ->
+            IconShape.entries.firstOrNull { it.name == stored }
+        } ?: IconShape.ROUNDED
+    )
+        private set
+    var font by mutableStateOf(LauncherFont.fromId(prefs.getString(K_FONT, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
         private set
@@ -99,6 +127,21 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_THEME, value.id).apply()
     }
 
+    fun updateVisualStyle(value: VisualStyle) {
+        visualStyle = value
+        prefs.edit().putString(K_VISUAL_STYLE, value.name).apply()
+    }
+
+    fun updateIconShape(value: IconShape) {
+        iconShape = value
+        prefs.edit().putString(K_ICON_SHAPE, value.name).apply()
+    }
+
+    fun updateFont(value: LauncherFont) {
+        font = value
+        prefs.edit().putString(K_FONT, value.name).apply()
+    }
+
     fun updateClockStyle(value: ClockStyle) {
         clockStyle = value
         prefs.edit().putString(K_CLOCK_STYLE, value.id).apply()
@@ -164,6 +207,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_ICON = "icon_scale"
         const val K_CLOCK = "clock_scale"
         const val K_THEME = "wallpaper_theme"
+        const val K_VISUAL_STYLE = "visual_style"
+        const val K_ICON_SHAPE = "icon_shape"
+        const val K_FONT = "launcher_font"
         const val K_CLOCK_STYLE = "clock_style"
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
