@@ -31,6 +31,8 @@ class WeatherRepository(context: Context) {
                 tempC = o.getInt("tempC"),
                 condition = WeatherCondition.valueOf(o.getString("condition")),
                 isDay = o.getBoolean("isDay"),
+                sunriseTime = o.optString("sunriseTime").takeIf { it.isNotBlank() },
+                sunsetTime = o.optString("sunsetTime").takeIf { it.isNotBlank() },
                 fetchedAtMillis = o.getLong("fetchedAt")
             )
         }.getOrNull()
@@ -43,8 +45,15 @@ class WeatherRepository(context: Context) {
 
             val url = "https://api.open-meteo.com/v1/forecast" +
                 "?latitude=${place.lat}&longitude=${place.lon}" +
-                "&current=temperature_2m,weather_code,is_day&timezone=auto"
-            val current = JSONObject(httpGet(url)).getJSONObject("current")
+                "&current=temperature_2m,weather_code,is_day" +
+                "&daily=sunrise,sunset&timezone=auto&forecast_days=1"
+            val response = JSONObject(httpGet(url))
+            val current = response.getJSONObject("current")
+            val daily = response.getJSONObject("daily")
+            val sunriseTime = daily.optJSONArray("sunrise")?.optString(0)
+                ?.takeIf { it.isNotBlank() }
+            val sunsetTime = daily.optJSONArray("sunset")?.optString(0)
+                ?.takeIf { it.isNotBlank() }
 
             val snapshot = WeatherSnapshot(
                 query = query,
@@ -52,6 +61,8 @@ class WeatherRepository(context: Context) {
                 tempC = current.getDouble("temperature_2m").roundToInt(),
                 condition = conditionFromWmoCode(current.getInt("weather_code")),
                 isDay = current.optInt("is_day", 1) == 1,
+                sunriseTime = sunriseTime,
+                sunsetTime = sunsetTime,
                 fetchedAtMillis = System.currentTimeMillis()
             )
             save(snapshot)
@@ -101,6 +112,8 @@ class WeatherRepository(context: Context) {
             .put("tempC", s.tempC)
             .put("condition", s.condition.name)
             .put("isDay", s.isDay)
+            .put("sunriseTime", s.sunriseTime ?: "")
+            .put("sunsetTime", s.sunsetTime ?: "")
             .put("fetchedAt", s.fetchedAtMillis)
         prefs.edit().putString(KEY_SNAPSHOT, o.toString()).apply()
     }

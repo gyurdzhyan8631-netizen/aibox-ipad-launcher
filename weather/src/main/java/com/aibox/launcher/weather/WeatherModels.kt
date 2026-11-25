@@ -11,6 +11,8 @@ data class WeatherSnapshot(
     val tempC: Int,
     val condition: WeatherCondition,
     val isDay: Boolean,
+    val sunriseTime: String? = null,
+    val sunsetTime: String? = null,
     val fetchedAtMillis: Long
 )
 

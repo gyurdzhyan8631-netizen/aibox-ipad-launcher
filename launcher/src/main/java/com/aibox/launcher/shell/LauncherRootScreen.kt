@@ -65,10 +65,13 @@ import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.DynamicWeatherWallpaper
 import com.aibox.launcher.weather.CityNotFoundException
 import com.aibox.launcher.weather.WeatherRepository
+import com.aibox.launcher.weather.WeatherSnapshot
 import com.aibox.launcher.weather.ageText
 import com.aibox.launcher.weather.formatTemp
+import com.aibox.launcher.weather.titleRu
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -275,18 +278,28 @@ fun LauncherRootScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                        fontSize = (if (compact) 44f else 56f).sp * settings.clockScale,
-                        fontWeight = if (settings.clockStyle == ClockStyle.BOLD) FontWeight.Bold else FontWeight.Light,
-                        color = Color.White
+                if (pagerState.currentPage == 0) {
+                    SkyClockHeader(
+                        now = now,
+                        weather = shownWeather,
+                        compact = compact,
+                        clockScale = settings.clockScale,
+                        clockStyle = settings.clockStyle
                     )
-                    Text(
-                        text = now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru"))),
-                        fontSize = 16.sp,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
+                } else {
+                    Column {
+                        Text(
+                            text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
+                            fontSize = (if (compact) 44f else 56f).sp * settings.clockScale,
+                            fontWeight = if (settings.clockStyle == ClockStyle.BOLD) FontWeight.Bold else FontWeight.Light,
+                            color = Color.White
+                        )
+                        Text(
+                            text = now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru"))),
+                            fontSize = 16.sp,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
                 }
 
                 Row(
@@ -323,26 +336,30 @@ fun LauncherRootScreen(
                     state = pagerState,
                     modifier = Modifier.fillMaxSize()
                 ) { page ->
-                    HomeScreenPage(
-                        pageIndex = page,
-                        apps = apps,
-                        onLaunchApp = launchApp,
-                        appWidgetHost = appWidgetHost,
-                        nativeWidgetIds = widgetIdsByScreen[page].orEmpty(),
-                        iconScale = settings.iconScale,
-                        showDateWidget = settings.showDateWidget,
-                        showPowerWidget = settings.showPowerWidget,
-                        showNetworkWidget = settings.showNetworkWidget,
-                        showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
-                        showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
-                        showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
-                        homeScreenApps = settings.homeScreenApps,
-                        customIcons = customDockIcons,
-                        iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction,
-                        widgetPlacements = settings.widgetPlacements,
-                        onUpdateWidgetPlacement = settings::updateWidgetPlacement,
-                        widgetCardStyle = settings.widgetCardStyle
-                    )
+                    if (page == 0) {
+                        Box(modifier = Modifier.fillMaxSize())
+                    } else {
+                        HomeScreenPage(
+                            pageIndex = page,
+                            apps = apps,
+                            onLaunchApp = launchApp,
+                            appWidgetHost = appWidgetHost,
+                            nativeWidgetIds = widgetIdsByScreen[page].orEmpty(),
+                            iconScale = settings.iconScale,
+                            showDateWidget = settings.showDateWidget,
+                            showPowerWidget = settings.showPowerWidget,
+                            showNetworkWidget = settings.showNetworkWidget,
+                            showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
+                            showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
+                            showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
+                            homeScreenApps = settings.homeScreenApps,
+                            customIcons = customDockIcons,
+                            iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction,
+                            widgetPlacements = settings.widgetPlacements,
+                            onUpdateWidgetPlacement = settings::updateWidgetPlacement,
+                            widgetCardStyle = settings.widgetCardStyle
+                        )
+                    }
                 }
 
                 Row(
@@ -458,4 +475,67 @@ fun LauncherRootScreen(
         }
       }
     }
+}
+
+@Composable
+private fun SkyClockHeader(
+    now: LocalDateTime,
+    weather: WeatherSnapshot?,
+    compact: Boolean,
+    clockScale: Float,
+    clockStyle: ClockStyle
+) {
+    val date = now.format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
+    val weatherText = weather?.let {
+        "${it.cityName} · ${formatTemp(it.tempC)} · ${it.condition.titleRu()}"
+    }
+    val solarText = skySolarText(now, weather)
+
+    Column {
+        Text(
+            text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
+            fontSize = (if (compact) 44f else 68f).sp * clockScale,
+            lineHeight = (if (compact) 44f else 68f).sp * clockScale,
+            fontWeight = if (clockStyle == ClockStyle.BOLD) FontWeight.Bold else FontWeight.Light,
+            color = Color.White
+        )
+        Text(
+            text = date.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru")) else it.toString() },
+            fontSize = (if (compact) 13f else 16f).sp,
+            color = Color.White.copy(alpha = 0.86f)
+        )
+        if (weatherText != null) {
+            Text(
+                text = weatherText,
+                fontSize = (if (compact) 14f else 18f).sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        if (solarText != null) {
+            Text(
+                text = solarText,
+                fontSize = (if (compact) 13f else 16f).sp,
+                color = Color.White.copy(alpha = 0.82f),
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
+}
+
+private fun skySolarText(now: LocalDateTime, weather: WeatherSnapshot?): String? {
+    val iso = if (weather?.isDay == true) weather.sunsetTime else weather?.sunriseTime
+    if (iso.isNullOrBlank()) return null
+
+    return runCatching {
+        var target = LocalDateTime.parse(iso)
+        if (target.isBefore(now)) target = target.plusDays(1)
+        val duration = Duration.between(now, target)
+        val hours = duration.toHours()
+        val minutes = (duration.toMinutes() - hours * 60).coerceAtLeast(0)
+        val event = if (weather.isDay) "Закат" else "Восход"
+        val until = if (hours > 0) "$hours ч $minutes мин" else "$minutes мин"
+        "$event через $until"
+    }.getOrNull()
 }
