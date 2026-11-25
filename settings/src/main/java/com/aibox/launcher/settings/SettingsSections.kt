@@ -176,7 +176,7 @@ internal fun HomeSection(
             iconColor = Color(0xFFFF9F0A),
             title = "Показывать солнце и луну",
             checked = settings.showCelestialBodies,
-            onCheckedChange = settings::setShowCelestialBodies
+            onCheckedChange = settings::updateCelestialBodiesVisibility
         )
     }
 

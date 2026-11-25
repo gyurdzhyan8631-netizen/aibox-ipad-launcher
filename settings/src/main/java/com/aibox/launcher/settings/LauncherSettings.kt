@@ -199,7 +199,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_WIDGET_PLACEMENTS, json.toString()).apply()
     }
 
-    fun setShowCelestialBodies(show: Boolean) {
+    fun updateCelestialBodiesVisibility(show: Boolean) {
         showCelestialBodies = show
         prefs.edit().putBoolean(K_CELESTIAL_BODIES, show).apply()
     }
