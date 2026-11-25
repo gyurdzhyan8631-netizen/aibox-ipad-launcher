@@ -525,7 +525,8 @@ private fun SkyClockHeader(
 }
 
 private fun skySolarText(now: LocalDateTime, weather: WeatherSnapshot?): String? {
-    val iso = if (weather?.isDay == true) weather.sunsetTime else weather?.sunriseTime
+    val isDay = weather?.isDay == true
+    val iso = if (isDay) weather?.sunsetTime else weather?.sunriseTime
     if (iso.isNullOrBlank()) return null
 
     return runCatching {
@@ -534,7 +535,7 @@ private fun skySolarText(now: LocalDateTime, weather: WeatherSnapshot?): String?
         val duration = Duration.between(now, target)
         val hours = duration.toHours()
         val minutes = (duration.toMinutes() - hours * 60).coerceAtLeast(0)
-        val event = if (weather.isDay) "Закат" else "Восход"
+        val event = if (isDay) "Закат" else "Восход"
         val until = if (hours > 0) "$hours ч $minutes мин" else "$minutes мин"
         "$event через $until"
     }.getOrNull()
