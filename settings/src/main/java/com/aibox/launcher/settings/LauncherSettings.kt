@@ -24,6 +24,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     var panelScale by mutableFloatStateOf(prefs.getFloat(K_PANEL, 1f).coerceIn(0.75f, 1.35f))
         private set
+    var interfaceScale by mutableFloatStateOf(prefs.getFloat(K_INTERFACE, 0.85f).coerceIn(0.5f, 1.5f))
+        private set
     var iconScale by mutableFloatStateOf(prefs.getFloat(K_ICON, 1f).coerceIn(0.7f, 1.5f))
         private set
     var clockScale by mutableFloatStateOf(prefs.getFloat(K_CLOCK, 1f).coerceIn(0.6f, 1.4f))
@@ -47,15 +49,39 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         private set
     var showNetworkWidget by mutableStateOf(prefs.getBoolean(K_W_NET, true))
         private set
+    var showDateWidgetOnSecondScreen by mutableStateOf(prefs.getBoolean(K_W_DATE_2, false))
+        private set
+    var showPowerWidgetOnSecondScreen by mutableStateOf(prefs.getBoolean(K_W_POWER_2, false))
+        private set
+    var showNetworkWidgetOnSecondScreen by mutableStateOf(prefs.getBoolean(K_W_NET_2, false))
+        private set
+
+    var homeScreenApps by mutableStateOf(
+        prefs.getStringSet(K_HOME_APPS, emptySet())?.toSet() ?: emptySet()
+    )
+        private set
 
     var hiddenInDock by mutableStateOf(
         prefs.getStringSet(K_HIDDEN, emptySet())?.toSet() ?: emptySet<String>()
+    )
+        private set
+    var dockAppOrder by mutableStateOf(
+        prefs.getString(K_DOCK_ORDER, null)?.split('\n')?.filter(String::isNotBlank).orEmpty()
     )
         private set
 
     fun updatePanelScale(value: Float) {
         panelScale = value.coerceIn(0.75f, 1.35f)
         prefs.edit().putFloat(K_PANEL, panelScale).apply()
+    }
+
+    fun updateInterfaceScale(value: Float) {
+        interfaceScale = value.coerceIn(0.5f, 1.5f)
+        prefs.edit().putFloat(K_INTERFACE, interfaceScale).apply()
+    }
+
+    fun resetInterfaceScale() {
+        updateInterfaceScale(0.85f)
     }
 
     fun updateIconScale(value: Float) {
@@ -104,14 +130,37 @@ class LauncherSettings(private val prefs: SharedPreferences) {
             .apply()
     }
 
+    fun updateSecondScreenWidgets(date: Boolean? = null, power: Boolean? = null, network: Boolean? = null) {
+        if (date != null) showDateWidgetOnSecondScreen = date
+        if (power != null) showPowerWidgetOnSecondScreen = power
+        if (network != null) showNetworkWidgetOnSecondScreen = network
+        prefs.edit()
+            .putBoolean(K_W_DATE_2, showDateWidgetOnSecondScreen)
+            .putBoolean(K_W_POWER_2, showPowerWidgetOnSecondScreen)
+            .putBoolean(K_W_NET_2, showNetworkWidgetOnSecondScreen)
+            .apply()
+    }
+
+    fun setShownOnHomeScreen(packageName: String, shown: Boolean) {
+        homeScreenApps = if (shown) homeScreenApps + packageName else homeScreenApps - packageName
+        prefs.edit().putStringSet(K_HOME_APPS, homeScreenApps.toSet()).apply()
+    }
+
     fun setShownInDock(packageName: String, shown: Boolean) {
         hiddenInDock = if (shown) hiddenInDock - packageName else hiddenInDock + packageName
         prefs.edit().putStringSet(K_HIDDEN, hiddenInDock.toSet()).apply()
     }
 
+    fun updateDockAppOrder(packageNames: List<String>) {
+        val ordered = packageNames.distinct() + dockAppOrder.filterNot(packageNames.toSet()::contains)
+        dockAppOrder = ordered
+        prefs.edit().putString(K_DOCK_ORDER, ordered.joinToString("\n")).apply()
+    }
+
     private companion object {
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
+        const val K_INTERFACE = "interface_scale"
         const val K_ICON = "icon_scale"
         const val K_CLOCK = "clock_scale"
         const val K_THEME = "wallpaper_theme"
@@ -122,6 +171,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_W_DATE = "widget_date"
         const val K_W_POWER = "widget_power"
         const val K_W_NET = "widget_network"
+        const val K_W_DATE_2 = "widget_date_second_screen"
+        const val K_W_POWER_2 = "widget_power_second_screen"
+        const val K_W_NET_2 = "widget_network_second_screen"
+        const val K_HOME_APPS = "home_screen_apps"
         const val K_HIDDEN = "dock_hidden"
+        const val K_DOCK_ORDER = "dock_app_order"
     }
 }

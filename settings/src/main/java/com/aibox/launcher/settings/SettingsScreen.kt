@@ -86,6 +86,13 @@ fun SettingsScreen(
     settings: LauncherSettings,
     apps: List<InstalledApp>,
     weatherStatus: String,
+    widgetIdsByScreen: Map<Int, List<Int>>,
+    widgetLabels: Map<Int, String>,
+    onAddWidget: (Int) -> Unit,
+    onRemoveWidget: (Int) -> Unit,
+    customDockIcons: Map<String, String>,
+    onChooseDockIcon: (String) -> Unit,
+    onClearDockIcon: (String) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -172,10 +179,18 @@ fun SettingsScreen(
                             .padding(bottom = 12.dp)
                     ) {
                         when (section) {
-                            SettingsSection.HOME -> HomeSection(settings, weatherStatus)
+                            SettingsSection.HOME -> HomeSection(
+                                settings = settings,
+                                weatherStatus = weatherStatus,
+                                apps = apps,
+                                widgetIdsByScreen = widgetIdsByScreen,
+                                widgetLabels = widgetLabels,
+                                onAddWidget = onAddWidget,
+                                onRemoveWidget = onRemoveWidget
+                            )
                             SettingsSection.WIFI -> WifiSection()
                             SettingsSection.BLUETOOTH -> BluetoothSection()
-                            SettingsSection.DISPLAY -> DisplaySection()
+                            SettingsSection.DISPLAY -> DisplaySection(settings)
                             SettingsSection.SOUND -> SoundSection()
                             SettingsSection.PERSONALIZATION -> PersonalizationSection(
                                 settings = settings,
@@ -183,7 +198,13 @@ fun SettingsScreen(
                                 onPick = { picker = it },
                                 onOpenSection = { section = it }
                             )
-                            SettingsSection.APPS -> AppsSection(settings, apps)
+                            SettingsSection.APPS -> AppsSection(
+                                settings = settings,
+                                apps = apps,
+                                customDockIcons = customDockIcons,
+                                onChooseDockIcon = onChooseDockIcon,
+                                onClearDockIcon = onClearDockIcon
+                            )
                             SettingsSection.SYSTEM -> SystemSection()
                             SettingsSection.ABOUT -> AboutSection()
                         }

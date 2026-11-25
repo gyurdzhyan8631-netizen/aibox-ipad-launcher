@@ -1,5 +1,7 @@
 package com.aibox.launcher.shell
 
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,7 +43,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.appdrawer.AppDrawerOverlay
@@ -68,7 +73,15 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun LauncherRootScreen() {
+fun LauncherRootScreen(
+    appWidgetHost: AppWidgetHost,
+    widgetIdsByScreen: Map<Int, List<Int>>,
+    onAddWidget: (Int) -> Unit,
+    onRemoveWidget: (Int) -> Unit,
+    customDockIcons: Map<String, String>,
+    onChooseDockIcon: (String) -> Unit,
+    onClearDockIcon: (String) -> Unit
+) {
     val context = LocalContext.current
     val systemActions = remember { SystemActionsHandler(context) }
     val controller = remember(context) { ControlCenterSystemController(context) }
@@ -79,6 +92,16 @@ fun LauncherRootScreen() {
     // --- Настройки (хранятся на устройстве и применяются сразу) ---
     val prefs = remember { context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE) }
     val settings = remember { LauncherSettings(prefs) }
+    val density = LocalDensity.current
+    val widgetLabels = remember(widgetIdsByScreen, context) {
+        val manager = AppWidgetManager.getInstance(context)
+        widgetIdsByScreen.values.flatten().distinct().associateWith { id ->
+            manager.getAppWidgetInfo(id)
+                ?.loadLabel(context.packageManager)
+                ?.toString()
+                ?: "Недоступный виджет"
+        }
+    }
 
     // --- Погода: офлайн-приоритет (кэш на устройстве + фоновое обновление) ---
     val weatherRepo = remember { WeatherRepository(context) }
@@ -122,7 +145,12 @@ fun LauncherRootScreen() {
     val apps by produceState(initialValue = emptyList<InstalledApp>()) {
         value = InstalledAppsRepository(context).loadLaunchableApps()
     }
-    val dockApps = apps.filter { it.packageName !in settings.hiddenInDock }
+    val dockApps = apps
+        .filter { it.packageName !in settings.hiddenInDock }
+        .sortedBy { app ->
+            val index = settings.dockAppOrder.indexOf(app.packageName)
+            if (index < 0) Int.MAX_VALUE else index
+        }
 
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -176,47 +204,54 @@ fun LauncherRootScreen() {
         else -> DayPeriod.NIGHT
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            // Свайп вниз от верхнего края открывает шторку быстрого доступа.
-            .pointerInput(Unit) {
-                var startedAtTop = false
-                var accumulated = 0f
-                detectVerticalDragGestures(
-                    onDragStart = { offset ->
-                        startedAtTop = offset.y <= 96f
-                        accumulated = 0f
-                    },
-                    onDragEnd = {
-                        startedAtTop = false
-                        accumulated = 0f
-                    },
-                    onDragCancel = {
-                        startedAtTop = false
-                        accumulated = 0f
-                    },
-                    onVerticalDrag = { change, dragAmount ->
-                        if (startedAtTop && dragAmount > 0f &&
-                            !showQuickPanel && !showSettings && !showAppDrawer
-                        ) {
-                            accumulated += dragAmount
-                            if (accumulated >= 140f) {
-                                change.consume()
-                                showQuickPanel = true
-                                startedAtTop = false
-                                accumulated = 0f
+    CompositionLocalProvider(
+        LocalDensity provides Density(
+            density = density.density * settings.interfaceScale,
+            fontScale = density.fontScale
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                // Свайп вниз от верхнего края открывает шторку быстрого доступа.
+                .pointerInput(Unit) {
+                    var startedAtTop = false
+                    var accumulated = 0f
+                    detectVerticalDragGestures(
+                        onDragStart = { offset ->
+                            startedAtTop = offset.y <= 96f
+                            accumulated = 0f
+                        },
+                        onDragEnd = {
+                            startedAtTop = false
+                            accumulated = 0f
+                        },
+                        onDragCancel = {
+                            startedAtTop = false
+                            accumulated = 0f
+                        },
+                        onVerticalDrag = { change, dragAmount ->
+                            if (startedAtTop && dragAmount > 0f &&
+                                !showQuickPanel && !showSettings && !showAppDrawer
+                            ) {
+                                accumulated += dragAmount
+                                if (accumulated >= 140f) {
+                                    change.consume()
+                                    showQuickPanel = true
+                                    startedAtTop = false
+                                    accumulated = 0f
+                                }
                             }
                         }
-                    }
-                )
-            }
-    ) {
+                    )
+                }
+        ) {
         // 1. Обои: тема + время суток + погода
         DynamicWeatherWallpaper(
             dayPeriod = dayPeriod,
             weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
-            theme = settings.theme
+            theme = settings.theme,
+            currentTime = now.toLocalTime()
         )
 
         Column(
@@ -278,10 +313,16 @@ fun LauncherRootScreen() {
                         pageIndex = page,
                         apps = apps,
                         onLaunchApp = launchApp,
+                        appWidgetHost = appWidgetHost,
+                        nativeWidgetIds = widgetIdsByScreen[page].orEmpty(),
                         iconScale = settings.iconScale,
                         showDateWidget = settings.showDateWidget,
                         showPowerWidget = settings.showPowerWidget,
-                        showNetworkWidget = settings.showNetworkWidget
+                        showNetworkWidget = settings.showNetworkWidget,
+                        showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
+                        showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
+                        showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
+                        homeScreenApps = settings.homeScreenApps
                     )
                 }
 
@@ -337,7 +378,9 @@ fun LauncherRootScreen() {
                     onOpenDrawer = { showAppDrawer = !showAppDrawer },
                     onOpenSettings = { openSettings("personalization") },
                     modifier = Modifier.weight(1f),
-                    scale = settings.panelScale
+                    scale = settings.panelScale,
+                    customIcons = customDockIcons,
+                    onReorderApps = settings::updateDockAppOrder
                 )
             }
         }
@@ -370,13 +413,21 @@ fun LauncherRootScreen() {
         )
 
         // 7. Настройки (как в iPad)
-        SettingsScreen(
-            visible = showSettings,
-            initialSectionId = settingsSection,
-            settings = settings,
-            apps = apps,
-            weatherStatus = weatherStatus,
-            onClose = { showSettings = false }
-        )
+            SettingsScreen(
+                visible = showSettings,
+                initialSectionId = settingsSection,
+                settings = settings,
+                apps = apps,
+                weatherStatus = weatherStatus,
+                widgetIdsByScreen = widgetIdsByScreen,
+                widgetLabels = widgetLabels,
+                onAddWidget = onAddWidget,
+                onRemoveWidget = onRemoveWidget,
+                customDockIcons = customDockIcons,
+                onChooseDockIcon = onChooseDockIcon,
+                onClearDockIcon = onClearDockIcon,
+                onClose = { showSettings = false }
+            )
+        }
     }
 }

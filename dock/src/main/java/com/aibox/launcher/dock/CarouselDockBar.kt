@@ -6,6 +6,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
@@ -60,7 +63,9 @@ fun CarouselDockBar(
     onOpenDrawer: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    scale: Float = DockDefaults.DEFAULT_SCALE
+    scale: Float = DockDefaults.DEFAULT_SCALE,
+    customIcons: Map<String, String> = emptyMap(),
+    onReorderApps: (List<String>) -> Unit = {}
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
     val iconSize = maxOf(panelHeight - 36.dp, 28.dp)
@@ -129,10 +134,33 @@ fun CarouselDockBar(
                 modifier = Modifier.fillMaxSize()
             ) {
                 items(apps, key = { it.packageName }) { app ->
+                    val appIndex = apps.indexOf(app)
                     DockAppItem(
                         app = app,
+                        index = appIndex,
                         listState = listState,
                         iconSize = iconSize,
+                        customIconUri = customIcons[app.packageName],
+                        onDrop = { draggedBy ->
+                            val info = listState.layoutInfo
+                            val dragged = info.visibleItemsInfo
+                                .firstOrNull { it.key == app.packageName }
+                            if (dragged != null) {
+                                val dropCenter = dragged.offset + dragged.size / 2f + draggedBy
+                                val target = info.visibleItemsInfo.minByOrNull {
+                                    abs(it.offset + it.size / 2f - dropCenter)
+                                }
+                                val targetIndex = target?.let { item ->
+                                    apps.indexOfFirst { it.packageName == item.key }
+                                } ?: appIndex
+                                if (targetIndex >= 0 && targetIndex != appIndex) {
+                                    val reordered = apps.map { it.packageName }.toMutableList()
+                                    val moved = reordered.removeAt(appIndex)
+                                    reordered.add(targetIndex.coerceIn(0, reordered.size), moved)
+                                    onReorderApps(reordered)
+                                }
+                            }
+                        },
                         onClick = { onLaunchApp(app) }
                     )
                 }
@@ -153,10 +181,14 @@ fun CarouselDockBar(
 @Composable
 private fun DockAppItem(
     app: InstalledApp,
+    index: Int,
     listState: LazyListState,
     iconSize: Dp,
+    customIconUri: String?,
+    onDrop: (Float) -> Unit,
     onClick: () -> Unit
 ) {
+    var dragOffset by remember(app.packageName) { mutableFloatStateOf(0f) }
     // 0 — иконка в центре дока, 1 — далеко от центра.
     val distance by remember(app.packageName) {
         derivedStateOf {
@@ -181,11 +213,28 @@ private fun DockAppItem(
         onClick = onClick,
         iconSize = iconSize,
         showLabel = false,
-        modifier = Modifier.graphicsLayer {
-            scaleX = itemScale
-            scaleY = itemScale
-            alpha = 1f - 0.55f * distance
-        }
+        customIconUri = customIconUri,
+        modifier = Modifier
+            .pointerInput(app.packageName, index) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { dragOffset = 0f },
+                    onDragEnd = {
+                        onDrop(dragOffset)
+                        dragOffset = 0f
+                    },
+                    onDragCancel = { dragOffset = 0f },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        dragOffset += amount.x
+                    }
+                )
+            }
+            .graphicsLayer {
+                scaleX = itemScale
+                scaleY = itemScale
+                alpha = 1f - 0.55f * distance
+                translationX = dragOffset
+            }
     )
 }
 

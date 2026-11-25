@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.icons.rememberAppIcon
@@ -116,7 +117,15 @@ private fun rememberNetSummary(context: Context): State<NetSummary> =
 // ---------------------------------------------------------------- Главная
 
 @Composable
-internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
+internal fun HomeSection(
+    settings: LauncherSettings,
+    weatherStatus: String,
+    apps: List<InstalledApp>,
+    widgetIdsByScreen: Map<Int, List<Int>>,
+    widgetLabels: Map<Int, String>,
+    onAddWidget: (Int) -> Unit,
+    onRemoveWidget: (Int) -> Unit
+) {
     SectionTitle("Погода для обоев")
     SettingsGroup {
         var draft by remember(settings.city) { mutableStateOf(settings.city) }
@@ -157,7 +166,7 @@ internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
         }
     }
 
-    SectionTitle("Виджеты главного экрана")
+    SectionTitle("Виджеты рабочего стола 1")
     SettingsGroup {
         SwitchRow(
             icon = Icons.Rounded.DateRange,
@@ -182,6 +191,93 @@ internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
             checked = settings.showNetworkWidget,
             onCheckedChange = { settings.updateWidgets(network = it) }
         )
+    }
+
+    SectionTitle("Виджеты рабочего стола 2")
+    SettingsGroup {
+        SwitchRow(
+            icon = Icons.Rounded.DateRange,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Дата",
+            checked = settings.showDateWidgetOnSecondScreen,
+            onCheckedChange = { settings.updateSecondScreenWidgets(date = it) }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.BatteryFull,
+            iconColor = Color(0xFF30D158),
+            title = "Питание",
+            checked = settings.showPowerWidgetOnSecondScreen,
+            onCheckedChange = { settings.updateSecondScreenWidgets(power = it) }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Wifi,
+            iconColor = Color(0xFF0A84FF),
+            title = "Сеть",
+            checked = settings.showNetworkWidgetOnSecondScreen,
+            onCheckedChange = { settings.updateSecondScreenWidgets(network = it) }
+        )
+    }
+
+    SectionTitle("Виджеты приложений — рабочий стол 1")
+    ExternalWidgetsSettings(
+        screenIndex = 0,
+        widgetIds = widgetIdsByScreen[0].orEmpty(),
+        widgetLabels = widgetLabels,
+        onAddWidget = onAddWidget,
+        onRemoveWidget = onRemoveWidget
+    )
+
+    SectionTitle("Виджеты приложений — рабочий стол 2")
+    ExternalWidgetsSettings(
+        screenIndex = 1,
+        widgetIds = widgetIdsByScreen[1].orEmpty(),
+        widgetLabels = widgetLabels,
+        onAddWidget = onAddWidget,
+        onRemoveWidget = onRemoveWidget
+    )
+
+    SectionTitle("Приложения на рабочем столе 1")
+    HintText("Добавьте ярлыки приложений на первый стол. Все приложения также доступны на втором столе.")
+    SettingsGroup {
+        apps.forEachIndexed { index, app ->
+            if (index > 0) RowDivider()
+            SwitchRow(
+                icon = Icons.Rounded.Apps,
+                iconColor = Color(0xFF5E5CE6),
+                title = app.label,
+                checked = app.packageName in settings.homeScreenApps,
+                onCheckedChange = { settings.setShownOnHomeScreen(app.packageName, it) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExternalWidgetsSettings(
+    screenIndex: Int,
+    widgetIds: List<Int>,
+    widgetLabels: Map<Int, String>,
+    onAddWidget: (Int) -> Unit,
+    onRemoveWidget: (Int) -> Unit
+) {
+    SettingsGroup {
+        Box(modifier = Modifier.padding(16.dp)) {
+            PrimaryButton("Добавить виджет") { onAddWidget(screenIndex) }
+        }
+        widgetIds.forEach { id ->
+            RowDivider()
+            SettingsRow(
+                icon = Icons.Rounded.Widgets,
+                iconColor = Color(0xFF0A84FF),
+                title = widgetLabels[id] ?: "Виджет недоступен",
+                value = "Удалить",
+                subtitle = "Нажмите, чтобы удалить",
+                showChevron = false,
+                onClick = { onRemoveWidget(id) }
+            )
+        }
     }
 }
 
@@ -252,7 +348,7 @@ internal fun BluetoothSection() {
 // ---------------------------------------------------------------- Экран и яркость
 
 @Composable
-internal fun DisplaySection() {
+internal fun DisplaySection(settings: LauncherSettings) {
     val context = LocalContext.current
     val activity = context as? Activity
     var brightness by remember {
@@ -263,6 +359,22 @@ internal fun DisplaySection() {
             }.getOrDefault(70)
         )
     }
+    SettingsGroup {
+        SliderRow(
+            title = "Масштаб интерфейса",
+            valueText = "${(settings.interfaceScale * 100).roundToInt()}%",
+            value = settings.interfaceScale,
+            valueRange = 0.5f..1.5f,
+            steps = 19,
+            onValueChange = settings::updateInterfaceScale
+        )
+        RowDivider()
+        Box(modifier = Modifier.padding(16.dp)) {
+            PrimaryButton("Сбросить масштаб") { settings.resetInterfaceScale() }
+        }
+    }
+    HintText("Масштаб всех элементов лаунчера: от 50% до 150%. По умолчанию — 85%.")
+
     SettingsGroup {
         SliderRow(
             title = "Яркость",
@@ -591,9 +703,15 @@ private fun ThemeCard(
 // ---------------------------------------------------------------- Приложения
 
 @Composable
-internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
+internal fun AppsSection(
+    settings: LauncherSettings,
+    apps: List<InstalledApp>,
+    customDockIcons: Map<String, String>,
+    onChooseDockIcon: (String) -> Unit,
+    onClearDockIcon: (String) -> Unit
+) {
     val context = LocalContext.current
-    HintText("Переключатель — показывать приложение в доке. Нажатие на название открывает системные настройки приложения.")
+    HintText("Переключатель показывает приложение в доке. Можно выбрать свой значок; перетаскивайте иконки дока долгим нажатием. Нажатие на название открывает системные настройки.")
     SettingsGroup {
         apps.forEachIndexed { index, app ->
             if (index > 0) RowDivider()
@@ -605,7 +723,16 @@ internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
                     .clickable { SystemSettingsLauncher.openAppDetails(context, app.packageName) }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                if (icon != null) {
+                val customIcon = customDockIcons[app.packageName]
+                if (customIcon != null) {
+                    AsyncImage(
+                        model = customIcon,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                } else if (icon != null) {
                     Image(
                         bitmap = icon,
                         contentDescription = null,
@@ -628,6 +755,24 @@ internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
                     fontSize = 17.sp,
                     modifier = Modifier.weight(1f)
                 )
+                Text(
+                    text = if (customIcon == null) "Иконка" else "Изменить",
+                    color = SettingsColors.accent,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { onChooseDockIcon(app.packageName) }
+                        .padding(horizontal = 8.dp, vertical = 10.dp)
+                )
+                if (customIcon != null) {
+                    Text(
+                        text = "Сброс",
+                        color = SettingsColors.textSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier
+                            .clickable { onClearDockIcon(app.packageName) }
+                            .padding(end = 8.dp, top = 10.dp, bottom = 10.dp)
+                    )
+                }
                 androidx.compose.material3.Switch(
                     checked = app.packageName !in settings.hiddenInDock,
                     onCheckedChange = { settings.setShownInDock(app.packageName, it) }

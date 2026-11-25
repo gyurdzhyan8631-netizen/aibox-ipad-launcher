@@ -43,9 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 internal object SettingsColors {
-    val background = Color(0xFF0B0D14)
-    val card = Color(0xFF1C1F2A)
-    val cardBorder = Color(0x22FFFFFF)
+    val background = Color(0xA60B0D14)
+    val card = Color(0xB51C1F2A)
+    val cardBorder = Color(0x33FFFFFF)
     val accent = Color(0xFF0A84FF)
     val textSecondary = Color(0xFF9AA0AE)
     val divider = Color(0x22FFFFFF)
@@ -176,6 +176,7 @@ internal fun SliderRow(
     valueText: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
     onValueChange: (Float) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -192,6 +193,7 @@ internal fun SliderRow(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
+            steps = steps,
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
                 activeTrackColor = SettingsColors.accent

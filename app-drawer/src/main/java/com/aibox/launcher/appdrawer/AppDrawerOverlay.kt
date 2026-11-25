@@ -11,10 +11,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -64,38 +66,51 @@ fun AppDrawerOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xE6101218))
+                .background(Color(0xB3101218))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = onDismiss
                 )
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 40.dp, vertical = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+            BoxWithConstraints(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                SearchField(
-                    query = query,
-                    onQueryChange = { query = it },
+                val panelSize = minOf(maxHeight * 0.76f, maxWidth * 0.62f, 440.dp)
+                val panelShape = RoundedCornerShape(28.dp)
+                Column(
                     modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .fillMaxWidth(0.5f)
-                )
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 104.dp * iconScale),
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(filtered, key = { it.packageName }) { app ->
-                        AppIconView(
-                            app = app,
-                            iconSize = 72.dp * iconScale,
-                            onClick = { onLaunchApp(app) }
+                        .size(panelSize)
+                        .clip(panelShape)
+                        .background(Color(0xB51C1F2A))
+                        .border(1.dp, Color(0x44FFFFFF), panelShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
                         )
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    SearchField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 88.dp * iconScale),
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filtered, key = { it.packageName }) { app ->
+                            AppIconView(
+                                app = app,
+                                iconSize = 56.dp * iconScale,
+                                onClick = { onLaunchApp(app) }
+                            )
+                        }
                     }
                 }
             }

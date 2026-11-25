@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 import androidx.core.graphics.drawable.toBitmap
+import coil.compose.AsyncImage
 import com.aibox.launcher.core.model.InstalledApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -69,7 +70,8 @@ fun AppIconView(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     iconSize: Dp = 64.dp,
-    showLabel: Boolean = true
+    showLabel: Boolean = true,
+    customIconUri: String? = null
 ) {
     val icon = rememberAppIcon(app.packageName)
     Column(
@@ -80,7 +82,15 @@ fun AppIconView(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val shape = RoundedCornerShape(iconSize * 0.22f)
-        if (icon != null) {
+        if (customIconUri != null) {
+            AsyncImage(
+                model = customIconUri,
+                contentDescription = app.label,
+                modifier = Modifier
+                    .size(iconSize)
+                    .clip(shape)
+            )
+        } else if (icon != null) {
             Image(
                 bitmap = icon,
                 contentDescription = app.label,
