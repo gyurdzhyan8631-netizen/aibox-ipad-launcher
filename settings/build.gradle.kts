@@ -25,6 +25,7 @@ android {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
     implementation(libs.kotlinx.coroutines.android)
     implementation(project(":core:core-model"))
     implementation(project(":core:core-ui"))

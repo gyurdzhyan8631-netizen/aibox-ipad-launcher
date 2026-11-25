@@ -61,6 +61,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
+    var customWallpaperUri by mutableStateOf(prefs.getString(K_CUSTOM_WALLPAPER, "") ?: "")
+        private set
     var visualStyle by mutableStateOf(
         prefs.getString(K_VISUAL_STYLE, null)?.let { stored ->
             VisualStyle.entries.firstOrNull { it.name == stored }
@@ -72,6 +74,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
             IconShape.entries.firstOrNull { it.name == stored }
         } ?: IconShape.ROUNDED
     )
+        private set
+    var iconPackPackage by mutableStateOf(prefs.getString(K_ICON_PACK, "") ?: "")
         private set
     var font by mutableStateOf(LauncherFont.fromId(prefs.getString(K_FONT, null)))
         private set
@@ -162,6 +166,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_THEME, value.id).apply()
     }
 
+    fun updateCustomWallpaper(uri: String) {
+        customWallpaperUri = uri
+        prefs.edit().putString(K_CUSTOM_WALLPAPER, uri).apply()
+    }
+
     fun updateVisualStyle(value: VisualStyle) {
         visualStyle = value
         prefs.edit().putString(K_VISUAL_STYLE, value.name).apply()
@@ -170,6 +179,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateIconShape(value: IconShape) {
         iconShape = value
         prefs.edit().putString(K_ICON_SHAPE, value.name).apply()
+    }
+
+    fun updateIconPack(packageName: String) {
+        iconPackPackage = packageName
+        prefs.edit().putString(K_ICON_PACK, packageName).apply()
     }
 
     fun updateFont(value: LauncherFont) {
@@ -312,8 +326,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_ICON = "icon_scale"
         const val K_CLOCK = "clock_scale"
         const val K_THEME = "wallpaper_theme"
+        const val K_CUSTOM_WALLPAPER = "custom_wallpaper_uri"
         const val K_VISUAL_STYLE = "visual_style"
         const val K_ICON_SHAPE = "icon_shape"
+        const val K_ICON_PACK = "icon_pack_package"
         const val K_FONT = "launcher_font"
         const val K_WIDGET_STYLE = "widget_card_style"
         const val K_WIDGET_PLACEMENTS = "widget_placements"

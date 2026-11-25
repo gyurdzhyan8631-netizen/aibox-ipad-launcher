@@ -2,11 +2,15 @@ package com.aibox.launcher.settings
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.media.AudioManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
 import android.provider.Settings
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,6 +34,7 @@ import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Bluetooth
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Info
@@ -79,6 +84,7 @@ import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.icons.rememberAppIcon
+import com.aibox.launcher.icons.IconPackRepository
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -498,28 +504,90 @@ internal fun PersonalizationSection(
     val appOptions = remember(apps) {
         listOf(PickerOption("", "Авто")) + apps.map { PickerOption(it.packageName, it.label) }
     }
+    val context = LocalContext.current
+    val iconPacks = remember(context) { IconPackRepository(context).installedIconPacks() }
+    val wallpaperPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+            settings.updateCustomWallpaper(uri.toString())
+        }
+    }
 
     // --- карточка «Обои» ---
     val (previewTop, previewBottom) = wallpaperPreviewColors(settings.theme)
     SettingsGroup {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(14.dp)
+            modifier = Modifier
+                .padding(14.dp)
+                .fillMaxWidth()
         ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 150.dp, height = 72.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.verticalGradient(listOf(previewTop, previewBottom)))
-            )
+            if (settings.customWallpaperUri.isBlank()) {
+                Box(
+                    modifier = Modifier
+                        .size(width = 150.dp, height = 72.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Brush.verticalGradient(listOf(previewTop, previewBottom)))
+                )
+            } else {
+                AsyncImage(
+                    model = Uri.parse(settings.customWallpaperUri),
+                    contentDescription = "Выбранные обои",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .size(width = 150.dp, height = 72.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
+            }
             Spacer(Modifier.width(16.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text("Обои", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Тема: ${settings.theme.title}",
+                    if (settings.customWallpaperUri.isBlank()) {
+                        "Тема: ${settings.theme.title}"
+                    } else {
+                        "Используется изображение из устройства"
+                    },
                     color = SettingsColors.textSecondary,
                     fontSize = 14.sp
                 )
+            }
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF3A3F52))
+                    .clickable {
+                        wallpaperPicker.launch(arrayOf("image/*"))
+                    }
+                    .padding(horizontal = 14.dp)
+            ) {
+                Text("Выбрать", color = Color.White, fontSize = 14.sp)
+            }
+            if (settings.customWallpaperUri.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF4A2E38))
+                        .clickable { settings.updateCustomWallpaper("") }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Close,
+                        contentDescription = "Удалить выбранные обои",
+                        tint = Color(0xFFFF9B9B)
+                    )
+                }
             }
         }
     }
@@ -558,6 +626,25 @@ internal fun PersonalizationSection(
                                 IconShape.entries.first { it.name == selected }
                             )
                         }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Palette,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Пакет значков",
+            value = iconPacks.firstOrNull { it.packageName == settings.iconPackPackage }?.label ?: "Системные",
+            subtitle = if (iconPacks.isEmpty()) "Установите сторонний icon pack" else null,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Сторонний пакет значков",
+                        options = listOf(PickerOption("", "Системные")) +
+                            iconPacks.map { PickerOption(it.packageName, it.label) },
+                        selectedKey = settings.iconPackPackage,
+                        onSelect = settings::updateIconPack
                     )
                 )
             }

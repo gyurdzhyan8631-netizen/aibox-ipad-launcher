@@ -65,6 +65,7 @@ fun CarouselDockBar(
     modifier: Modifier = Modifier,
     scale: Float = DockDefaults.DEFAULT_SCALE,
     customIcons: Map<String, String> = emptyMap(),
+    iconPackPackage: String = "",
     onReorderApps: (List<String>) -> Unit = {},
     iconCornerRadiusFraction: Float = 0.22f
 ) {
@@ -142,6 +143,7 @@ fun CarouselDockBar(
                         listState = listState,
                         iconSize = iconSize,
                         customIconUri = customIcons[app.packageName],
+                        iconPackPackage = iconPackPackage,
                         iconCornerRadiusFraction = iconCornerRadiusFraction,
                         onDrop = { draggedBy ->
                             val info = listState.layoutInfo
@@ -187,6 +189,7 @@ private fun DockAppItem(
     listState: LazyListState,
     iconSize: Dp,
     customIconUri: String?,
+    iconPackPackage: String,
     iconCornerRadiusFraction: Float,
     onDrop: (Float) -> Unit,
     onClick: () -> Unit
@@ -217,6 +220,7 @@ private fun DockAppItem(
         iconSize = iconSize,
         showLabel = false,
         customIconUri = customIconUri,
+        iconPackPackage = iconPackPackage,
         cornerRadiusFraction = iconCornerRadiusFraction,
         modifier = Modifier
             .pointerInput(app.packageName, index) {

@@ -71,6 +71,7 @@ fun HomeScreenPage(
     showNetworkWidgetOnSecondScreen: Boolean = false,
     homeScreenApps: Set<String> = emptySet(),
     customIcons: Map<String, String> = emptyMap(),
+    iconPackPackage: String = "",
     iconCornerRadiusFraction: Float = 0.22f,
     widgetPlacements: Map<String, WidgetPlacement> = emptyMap(),
     onUpdateWidgetPlacement: (String, WidgetPlacement) -> Unit = { _, _ -> },
@@ -109,9 +110,9 @@ fun HomeScreenPage(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .padding(bottom = 22.dp)
+            .padding(bottom = 0.dp)
     ) {
-        val hasAppRow = pageIndex == 1 || shortcuts.isNotEmpty()
+        val hasAppRow = pageIndex == 0 && shortcuts.isNotEmpty()
         val appAreaHeight = if (hasAppRow) maxHeight * 0.28f else 0.dp
         val widgetAreaHeight = (maxHeight - appAreaHeight).coerceAtLeast(1.dp)
 
@@ -140,6 +141,7 @@ fun HomeScreenPage(
                     showLabels = false,
                     customIcons = customIcons,
                     iconCornerRadiusFraction = iconCornerRadiusFraction,
+                    iconPackPackage = iconPackPackage,
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -398,6 +400,7 @@ private fun AppGrid(
     showLabels: Boolean,
     customIcons: Map<String, String>,
     iconCornerRadiusFraction: Float,
+    iconPackPackage: String,
     modifier: Modifier = Modifier
 ) {
     LazyVerticalGrid(

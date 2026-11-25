@@ -53,7 +53,8 @@ fun AppDrawerOverlay(
     modifier: Modifier = Modifier,
     iconScale: Float = 1f,
     customIcons: Map<String, String> = emptyMap(),
-    iconCornerRadiusFraction: Float = 0.22f
+    iconCornerRadiusFraction: Float = 0.22f,
+    iconPackPackage: String = ""
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -110,10 +111,12 @@ fun AppDrawerOverlay(
                         items(filtered, key = { it.packageName }) { app ->
                             AppIconView(
                                 app = app,
-                                iconSize = 24.dp * iconScale,
+                                iconSize = 38.dp * iconScale,
+                                showLabel = false,
                                 contentPaddingDp = 2.dp,
                                 cornerRadiusFraction = iconCornerRadiusFraction,
                                 customIconUri = customIcons[app.packageName],
+                                iconPackPackage = iconPackPackage,
                                 onClick = { onLaunchApp(app) }
                             )
                         }
@@ -123,7 +126,7 @@ fun AppDrawerOverlay(
                         onQueryChange = { query = it },
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
-                            .width(panelWidth * 0.42f)
+                            .width(panelWidth * 0.30f)
                             .offset(y = (-4).dp)
                     )
                 }
@@ -143,7 +146,7 @@ private fun SearchField(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontSize = 18.sp),
+        textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
         cursorBrush = SolidColor(Color.White),
         modifier = modifier,
         decorationBox = { inner ->
@@ -153,14 +156,14 @@ private fun SearchField(
                     .clip(shape)
                     .background(Color.White.copy(alpha = 0.12f))
                     .border(1.dp, Color.White.copy(alpha = 0.2f), shape)
-                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (query.isEmpty()) {
                     Text(
                         text = "Поиск приложений",
                         color = Color.White.copy(alpha = 0.5f),
-                        fontSize = 18.sp
+                        fontSize = 15.sp
                     )
                 }
                 inner()

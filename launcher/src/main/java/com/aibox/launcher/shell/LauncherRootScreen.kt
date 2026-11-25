@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -262,7 +263,8 @@ fun LauncherRootScreen(
                 weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
                 theme = settings.theme,
                 currentTime = now.toLocalTime(),
-                showCelestialBodies = settings.showCelestialBodies
+                showCelestialBodies = settings.showCelestialBodies,
+                customWallpaperUri = settings.customWallpaperUri
             )
         }
 
@@ -339,26 +341,37 @@ fun LauncherRootScreen(
                     if (page == 0) {
                         Box(modifier = Modifier.fillMaxSize())
                     } else {
-                        HomeScreenPage(
-                            pageIndex = page,
-                            apps = apps,
-                            onLaunchApp = launchApp,
-                            appWidgetHost = appWidgetHost,
-                            nativeWidgetIds = widgetIdsByScreen[page].orEmpty(),
-                            iconScale = settings.iconScale,
-                            showDateWidget = settings.showDateWidget,
-                            showPowerWidget = settings.showPowerWidget,
-                            showNetworkWidget = settings.showNetworkWidget,
-                            showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
-                            showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
-                            showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
-                            homeScreenApps = settings.homeScreenApps,
-                            customIcons = customDockIcons,
-                            iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction,
-                            widgetPlacements = settings.widgetPlacements,
-                            onUpdateWidgetPlacement = settings::updateWidgetPlacement,
-                            widgetCardStyle = settings.widgetCardStyle
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(page) {
+                                    detectTapGestures {
+                                        openSettings("home")
+                                    }
+                                }
+                        ) {
+                            HomeScreenPage(
+                                pageIndex = page,
+                                apps = apps,
+                                onLaunchApp = launchApp,
+                                appWidgetHost = appWidgetHost,
+                                nativeWidgetIds = widgetIdsByScreen[page].orEmpty(),
+                                iconScale = settings.iconScale,
+                                showDateWidget = settings.showDateWidget,
+                                showPowerWidget = settings.showPowerWidget,
+                                showNetworkWidget = settings.showNetworkWidget,
+                                showDateWidgetOnSecondScreen = settings.showDateWidgetOnSecondScreen,
+                                showPowerWidgetOnSecondScreen = settings.showPowerWidgetOnSecondScreen,
+                                showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
+                                homeScreenApps = settings.homeScreenApps,
+                                customIcons = customDockIcons,
+                                iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction,
+                                iconPackPackage = settings.iconPackPackage,
+                                widgetPlacements = settings.widgetPlacements,
+                                onUpdateWidgetPlacement = settings::updateWidgetPlacement,
+                                widgetCardStyle = settings.widgetCardStyle
+                            )
+                        }
                     }
                 }
 
@@ -417,6 +430,7 @@ fun LauncherRootScreen(
                         modifier = Modifier.weight(1f),
                         scale = settings.panelScale,
                         customIcons = customDockIcons,
+                        iconPackPackage = settings.iconPackPackage,
                         onReorderApps = settings::updateDockAppOrder,
                         iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
                     )
@@ -435,6 +449,7 @@ fun LauncherRootScreen(
             onDismiss = { showAppDrawer = false },
             iconScale = settings.iconScale,
             customIcons = customDockIcons,
+            iconPackPackage = settings.iconPackPackage,
             iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
         )
 

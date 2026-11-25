@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WeatherCondition
+import coil.compose.AsyncImage
 import java.time.LocalTime
 import kotlin.math.PI
 import kotlin.math.sin
@@ -55,7 +57,8 @@ fun DynamicWeatherWallpaper(
     modifier: Modifier = Modifier,
     theme: WallpaperTheme = WallpaperTheme.AUTO,
     currentTime: LocalTime = LocalTime.now(),
-    showCelestialBodies: Boolean = true
+    showCelestialBodies: Boolean = true,
+    customWallpaperUri: String = ""
 ) {
     val fixed = wallpaperThemeColors(theme)
 
@@ -95,6 +98,14 @@ fun DynamicWeatherWallpaper(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
     ) {
+        if (customWallpaperUri.isNotBlank()) {
+            AsyncImage(
+                model = customWallpaperUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         val transition = rememberInfiniteTransition(label = "weather")
         val particlePhase = if (
             weather == WeatherCondition.RAIN ||

@@ -50,14 +50,25 @@ private fun loadIcon(pm: PackageManager, packageName: String): ImageBitmap? =
 
 /** Загружает иконку приложения в фоне и кэширует её. */
 @Composable
-fun rememberAppIcon(packageName: String): ImageBitmap? {
+fun rememberAppIcon(
+    packageName: String,
+    iconPackPackage: String = ""
+): ImageBitmap? {
     val context = LocalContext.current
+    val iconPackRepository = remember(context) { IconPackRepository(context) }
     val state = produceState<ImageBitmap?>(
-        initialValue = AppIconCache.get(packageName),
-        key1 = packageName
+        initialValue = if (iconPackPackage.isBlank()) AppIconCache.get(packageName) else null,
+        key1 = packageName,
+        key2 = iconPackPackage
     ) {
         if (value == null) {
-            value = withContext(Dispatchers.IO) { loadIcon(context.packageManager, packageName) }
+            value = withContext(Dispatchers.IO) {
+                if (iconPackPackage.isNotBlank()) {
+                    iconPackRepository.loadIcon(iconPackPackage, packageName)
+                } else {
+                    null
+                } ?: loadIcon(context.packageManager, packageName)
+            }
         }
     }
     return state.value
@@ -73,9 +84,10 @@ fun AppIconView(
     showLabel: Boolean = true,
     customIconUri: String? = null,
     cornerRadiusFraction: Float = 0.22f,
-    contentPaddingDp: Dp = 8.dp
+    contentPaddingDp: Dp = 8.dp,
+    iconPackPackage: String = ""
 ) {
-    val icon = rememberAppIcon(app.packageName)
+    val icon = rememberAppIcon(app.packageName, iconPackPackage)
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
