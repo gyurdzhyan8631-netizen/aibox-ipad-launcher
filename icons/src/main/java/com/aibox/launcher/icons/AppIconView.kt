@@ -72,14 +72,15 @@ fun AppIconView(
     iconSize: Dp = 64.dp,
     showLabel: Boolean = true,
     customIconUri: String? = null,
-    cornerRadiusFraction: Float = 0.22f
+    cornerRadiusFraction: Float = 0.22f,
+    contentPaddingDp: Dp = 8.dp
 ) {
     val icon = rememberAppIcon(app.packageName)
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(contentPaddingDp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         val shape = RoundedCornerShape(iconSize * cornerRadiusFraction.coerceIn(0f, 0.5f))

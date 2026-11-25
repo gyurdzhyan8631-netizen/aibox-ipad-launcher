@@ -15,8 +15,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -79,43 +82,50 @@ fun AppDrawerOverlay(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                val panelSize = minOf(maxHeight * 0.76f, maxWidth * 0.62f, 440.dp)
-                val panelShape = RoundedCornerShape(28.dp)
-                Column(
+                val panelWidth = minOf(maxWidth * 0.62f, 440.dp)
+                val panelHeight = minOf(maxHeight * 0.64f, 440.dp)
+                val panelShape = RoundedCornerShape(24.dp)
+                Box(
                     modifier = Modifier
-                        .size(panelSize)
+                        .size(width = panelWidth, height = panelHeight)
                         .clip(panelShape)
-                        .background(Color(0xB51C1F2A))
-                        .border(1.dp, Color(0x44FFFFFF), panelShape)
+                        .background(Color(0xCC1A2440))
+                        .border(1.dp, Color(0x66FFFFFF), panelShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {}
                         )
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 8.dp),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    SearchField(
-                        query = query,
-                        onQueryChange = { query = it },
-                        modifier = Modifier.fillMaxWidth()
-                    )
                     LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 88.dp * iconScale),
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        columns = GridCells.Fixed(8),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 42.dp),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         items(filtered, key = { it.packageName }) { app ->
                             AppIconView(
                                 app = app,
-                                iconSize = 56.dp * iconScale,
-                                customIconUri = customIcons[app.packageName],
+                                iconSize = 24.dp * iconScale,
+                                contentPaddingDp = 2.dp,
                                 cornerRadiusFraction = iconCornerRadiusFraction,
+                                customIconUri = customIcons[app.packageName],
                                 onClick = { onLaunchApp(app) }
                             )
                         }
                     }
+                    SearchField(
+                        query = query,
+                        onQueryChange = { query = it },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .width(panelWidth * 0.42f)
+                            .offset(y = (-4).dp)
+                    )
                 }
             }
         }
