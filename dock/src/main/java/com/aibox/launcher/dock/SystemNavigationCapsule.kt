@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aibox.launcher.core.ui.glassSurface
 
 @Composable
 fun SystemNavigationCapsule(
@@ -42,8 +43,8 @@ fun SystemNavigationCapsule(
         modifier = modifier
             .height(panelHeight)
             .clip(shape)
-            .background(Color(0x661C1C1E))
-            .border(1.dp, Color(0x33FFFFFF), shape)
+            .background(Color(0x40080A10))
+            .glassSurface(shape)
             .padding(horizontal = panelHeight * 0.2f)
     ) {
         CapsuleButton(Icons.AutoMirrored.Rounded.ArrowBack, "Назад", buttonSize, onBack)

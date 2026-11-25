@@ -41,9 +41,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.ui.glassSurface
 
 internal object SettingsColors {
-    val background = Color(0xFF0B0D14)
+    val background = Color(0xE80B0D14)
     val card = Color(0xFF1C1F2A)
     val cardBorder = Color(0x22FFFFFF)
     val accent = Color(0xFF0A84FF)
@@ -61,9 +62,7 @@ internal fun SettingsGroup(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(SettingsColors.card)
-            .border(1.dp, SettingsColors.cardBorder, shape),
+            .glassSurface(shape),
         content = content
     )
 }
@@ -266,8 +265,8 @@ internal fun OptionPicker(request: PickerRequest, onDismiss: () -> Unit) {
                 .widthIn(max = 460.dp)
                 .heightIn(max = 320.dp)
                 .clip(shape)
-                .background(Color(0xFF232733))
-                .border(1.dp, SettingsColors.cardBorder, shape)
+                .background(Color(0xF0171A24))
+                .glassSurface(shape)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,

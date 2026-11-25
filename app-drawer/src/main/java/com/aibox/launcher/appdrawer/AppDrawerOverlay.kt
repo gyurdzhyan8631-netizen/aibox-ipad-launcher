@@ -12,6 +12,8 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -86,13 +88,12 @@ fun AppDrawerOverlay(
                     onClick = onDismiss
                 )
         ) {
-            // --- сама панель ---
+            // --- сама панель: небольшой квадрат по центру, как в Samsung DeX ---
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomInset)
-                    .fillMaxWidth(0.8f)
-                    .fillMaxHeight(0.74f)
+                    .align(Alignment.Center)
+                    .fillMaxHeight(0.78f)
+                    .aspectRatio(1.08f, matchHeightConstraintsFirst = true)
                     .clip(panelShape)
                     .background(PanelColor)
                     .border(1.dp, Color(0x66FFFFFF), panelShape)
@@ -104,20 +105,20 @@ fun AppDrawerOverlay(
                     )
             ) {
                 LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = 78.dp * iconScale),
+                    columns = GridCells.Fixed(8),
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 18.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 18.dp, bottom = 74.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                        .padding(horizontal = 10.dp),
+                    contentPadding = PaddingValues(top = 14.dp, bottom = 56.dp),
+                    horizontalArrangement = Arrangement.spacedBy(0.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(filtered, key = { it.packageName }) { app ->
                         AppIconView(
                             app = app,
-                            iconSize = 40.dp * iconScale,
+                            iconSize = 26.dp * iconScale,
                             labelColor = LabelColor,
-                            labelSize = 11.sp,
+                            labelSize = 8.sp,
                             onClick = { onLaunchApp(app) }
                         )
                     }
@@ -128,8 +129,8 @@ fun AppDrawerOverlay(
                     onQueryChange = { query = it },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 16.dp)
-                        .fillMaxWidth(0.42f)
+                        .padding(bottom = 12.dp)
+                        .fillMaxWidth(0.6f)
                 )
             }
         }
@@ -147,7 +148,7 @@ private fun SearchPill(
         value = query,
         onValueChange = onQueryChange,
         singleLine = true,
-        textStyle = TextStyle(color = LabelColor, fontSize = 15.sp),
+        textStyle = TextStyle(color = LabelColor, fontSize = 12.sp),
         cursorBrush = SolidColor(LabelColor),
         modifier = modifier,
         decorationBox = { inner ->
@@ -158,18 +159,18 @@ private fun SearchPill(
                     .clip(shape)
                     .background(Color(0xFFF8F8FA))
                     .border(1.dp, Color(0x22000000), shape)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .padding(horizontal = 12.dp, vertical = 7.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = Color(0xFF55555C),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(15.dp)
                 )
-                Box(modifier = Modifier.width(10.dp))
+                Box(modifier = Modifier.width(8.dp))
                 Box {
                     if (query.isEmpty()) {
-                        Text("Поиск", color = Color(0xFF6B6B73), fontSize = 15.sp)
+                        Text("Поиск", color = Color(0xFF6B6B73), fontSize = 12.sp)
                     }
                     inner()
                 }

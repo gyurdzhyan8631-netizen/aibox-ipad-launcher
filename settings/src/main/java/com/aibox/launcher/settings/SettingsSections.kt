@@ -1,6 +1,12 @@
 package com.aibox.launcher.settings
 
 import android.app.Activity
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.content.Intent
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Tune
+import com.aibox.launcher.widgets.AppWidgetController
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
@@ -132,7 +138,12 @@ private fun rememberNetSummary(context: Context): State<NetSummary> =
 // ---------------------------------------------------------------- Главная
 
 @Composable
-internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
+internal fun HomeSection(
+    settings: LauncherSettings,
+    weatherStatus: String,
+    widgetController: AppWidgetController,
+    onPick: (PickerRequest) -> Unit
+) {
     SectionTitle("Погода для обоев")
     SettingsGroup {
         var draft by remember(settings.city) { mutableStateOf(settings.city) }
@@ -173,9 +184,9 @@ internal fun HomeSection(settings: LauncherSettings, weatherStatus: String) {
         }
     }
 
-    WidgetsGroup(settings, page = 1, title = "Рабочий стол 1")
-    WidgetsGroup(settings, page = 2, title = "Рабочий стол 2")
-    HintText("Оба рабочих стола — полноценные: на каждом можно собрать свой набор виджетов.")
+    WidgetsGroup(settings, page = 1, title = "Рабочий стол 1", controller = widgetController, onPick = onPick)
+    WidgetsGroup(settings, page = 2, title = "Рабочий стол 2", controller = widgetController, onPick = onPick)
+    HintText("Оба рабочих стола — полноценные: на каждом свой набор виджетов, включая виджеты других приложений и виджет «Все приложения».")
 }
 
 private fun widgetIcon(widget: DesktopWidget) = when (widget) {
@@ -184,6 +195,7 @@ private fun widgetIcon(widget: DesktopWidget) = when (widget) {
     DesktopWidget.NETWORK -> Icons.Rounded.Wifi
     DesktopWidget.WEATHER -> Icons.Rounded.Cloud
     DesktopWidget.MUSIC -> Icons.Rounded.MusicNote
+    DesktopWidget.APPS -> Icons.Rounded.Apps
 }
 
 private fun widgetColor(widget: DesktopWidget) = when (widget) {
@@ -192,11 +204,74 @@ private fun widgetColor(widget: DesktopWidget) = when (widget) {
     DesktopWidget.NETWORK -> Color(0xFF0A84FF)
     DesktopWidget.WEATHER -> Color(0xFF64D2FF)
     DesktopWidget.MUSIC -> Color(0xFFFF375F)
+    DesktopWidget.APPS -> Color(0xFFBF5AF2)
 }
 
 @Composable
-private fun WidgetsGroup(settings: LauncherSettings, page: Int, title: String) {
-    val enabled = if (page == 1) settings.page1Widgets else settings.page2Widgets
+private fun WidgetsGroup(
+    settings: LauncherSettings,
+    page: Int,
+    title: String,
+    controller: AppWidgetController,
+    onPick: (PickerRequest) -> Unit
+) {
+    val context = LocalContext.current
+    val tokens = if (page == 1) settings.page1Widgets else settings.page2Widgets
+    var pendingId by remember { mutableIntStateOf(-1) }
+
+    fun finishAdd(id: Int) {
+        settings.addAppWidget(page, id)
+        pendingId = -1
+    }
+
+    fun cancelAdd() {
+        if (pendingId != -1) controller.delete(pendingId)
+        pendingId = -1
+    }
+
+    val configureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val id = pendingId
+        if (id != -1) {
+            if (result.resultCode == Activity.RESULT_OK) finishAdd(id) else cancelAdd()
+        }
+    }
+
+    fun proceed(id: Int) {
+        val configure = controller.info(id)?.configure
+        if (configure == null) {
+            finishAdd(id)
+        } else {
+            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
+                .setComponent(configure)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            runCatching { configureLauncher.launch(intent) }.onFailure { finishAdd(id) }
+        }
+    }
+
+    val bindLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val id = pendingId
+        if (id != -1) {
+            if (result.resultCode == Activity.RESULT_OK) proceed(id) else cancelAdd()
+        }
+    }
+
+    fun startAdd(providerFlat: String) {
+        val provider = ComponentName.unflattenFromString(providerFlat) ?: return
+        val id = controller.allocateId()
+        pendingId = id
+        if (controller.bindIfAllowed(id, provider)) {
+            proceed(id)
+        } else {
+            val bind = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider)
+            runCatching { bindLauncher.launch(bind) }.onFailure {
+                cancelAdd()
+                Toast.makeText(context, "Не удалось добавить виджет", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     SectionTitle(title)
     SettingsGroup {
         DesktopWidget.entries.forEachIndexed { index, widget ->
@@ -205,10 +280,69 @@ private fun WidgetsGroup(settings: LauncherSettings, page: Int, title: String) {
                 icon = widgetIcon(widget),
                 iconColor = widgetColor(widget),
                 title = widget.title,
-                checked = widget in enabled,
-                onCheckedChange = { settings.setWidget(page, widget, it) }
+                checked = widget.id in tokens,
+                onCheckedChange = { settings.setBuiltinWidget(page, widget, it) }
             )
         }
+
+        tokens.filter { it.startsWith("aw:") }.forEach { token ->
+            RowDivider()
+            val id = token.removePrefix("aw:").toIntOrNull()
+            val info = id?.let { controller.info(it) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+            ) {
+                IconBadge(Icons.Rounded.Widgets, Color(0xFF5E5CE6))
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    text = info?.let { controller.title(it) } ?: "Виджет приложения",
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Убрать виджет",
+                    tint = Color(0xFFFF453A),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            if (id != null) controller.delete(id)
+                            settings.removeWidgetToken(page, token)
+                        }
+                        .padding(6.dp)
+                )
+            }
+        }
+
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = SettingsColors.accent,
+            title = "Добавить виджет из приложений",
+            subtitle = "Часы, погода, плееры и другие виджеты Android",
+            onClick = {
+                val options = controller.providers()
+                    .sortedBy { controller.title(it).lowercase() }
+                    .map { PickerOption(it.provider.flattenToString(), controller.title(it)) }
+                if (options.isEmpty()) {
+                    Toast.makeText(context, "На устройстве нет виджетов", Toast.LENGTH_SHORT).show()
+                } else {
+                    onPick(
+                        PickerRequest(
+                            title = "Выберите виджет",
+                            options = options,
+                            selectedKey = "",
+                            onSelect = { startAdd(it) }
+                        )
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -991,4 +1125,72 @@ internal fun UpdateSection() {
         }
     }
     HintText("Обновление скачивается с GitHub и устанавливается поверх текущей версии. Настройки сохраняются.")
+}
+
+
+// ---------------------------------------------------------------- Размеры
+
+private fun percent(value: Float) = "${(value * 100).roundToInt()}%"
+
+@Composable
+internal fun SizesSection(settings: LauncherSettings) {
+    SettingsGroup {
+        SliderRow(
+            title = "Весь интерфейс",
+            valueText = percent(settings.uiScale),
+            value = settings.uiScale,
+            valueRange = 0.6f..1.3f,
+            onValueChange = { settings.updateUiScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Часы и дата",
+            valueText = percent(settings.clockScale),
+            value = settings.clockScale,
+            valueRange = 0.6f..1.4f,
+            onValueChange = { settings.updateClockScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Значки состояния",
+            valueText = percent(settings.statusScale),
+            value = settings.statusScale,
+            valueRange = 0.6f..1.3f,
+            onValueChange = { settings.updateStatusScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Виджеты",
+            valueText = percent(settings.widgetScale),
+            value = settings.widgetScale,
+            valueRange = 0.6f..1f,
+            onValueChange = { settings.updateWidgetScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Док и кнопки навигации",
+            valueText = percent(settings.panelScale),
+            value = settings.panelScale,
+            valueRange = 0.75f..1.35f,
+            onValueChange = { settings.updatePanelScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Иконки приложений",
+            valueText = percent(settings.iconScale),
+            value = settings.iconScale,
+            valueRange = 0.7f..1.5f,
+            onValueChange = { settings.updateIconScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Шторка быстрого доступа",
+            valueText = percent(settings.quickScale),
+            value = settings.quickScale,
+            valueRange = 0.6f..1.3f,
+            onValueChange = { settings.updateQuickScale(it) }
+        )
+    }
+    PrimaryButton("Сбросить все размеры") { settings.resetSizes() }
+    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент. Док и кнопки навигации всегда остаются одной высоты.")
 }

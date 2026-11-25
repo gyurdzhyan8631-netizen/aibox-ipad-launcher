@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.aibox.launcher.core.ui.glassSurface
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -131,8 +132,8 @@ fun StatusIconsCapsule(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .clip(shape)
-            .background(Color(0x401C1C1E))
-            .border(1.dp, Color(0x33FFFFFF), shape)
+            .background(Color(0x40080A10))
+            .glassSurface(shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {

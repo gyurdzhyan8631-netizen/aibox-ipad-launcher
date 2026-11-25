@@ -32,6 +32,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var clockScale by mutableFloatStateOf(prefs.getFloat(K_CLOCK, 1f).coerceIn(0.6f, 1.4f))
         private set
 
+    /** Масштаб всего интерфейса (по умолчанию чуть меньше, чем «как есть»). */
+    var uiScale by mutableFloatStateOf(prefs.getFloat(K_UI, DEFAULT_UI_SCALE).coerceIn(0.6f, 1.3f))
+        private set
+    var statusScale by mutableFloatStateOf(prefs.getFloat(K_STATUS, 1f).coerceIn(0.6f, 1.3f))
+        private set
+    var widgetScale by mutableFloatStateOf(prefs.getFloat(K_WIDGET, 1f).coerceIn(0.6f, 1f))
+        private set
+    var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
+        private set
+
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
@@ -44,13 +54,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var city by mutableStateOf(prefs.getString(K_CITY, "") ?: "")
         private set
 
-    var page1Widgets by mutableStateOf(
-        DesktopWidget.parse(prefs.getString(K_P1, "date,power,network") ?: "")
-    )
+    /** Записи рабочего стола: id встроенного виджета («date») или виджет другого приложения («aw:123»). */
+    var page1Widgets by mutableStateOf(parseTokens(prefs.getString(K_P1, "date,power,network")))
         private set
-    var page2Widgets by mutableStateOf(
-        DesktopWidget.parse(prefs.getString(K_P2, "weather,music") ?: "")
-    )
+    var page2Widgets by mutableStateOf(parseTokens(prefs.getString(K_P2, "weather,music")))
         private set
 
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
@@ -103,17 +110,67 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_CITY, city).apply()
     }
 
-    fun setWidget(page: Int, widget: DesktopWidget, enabled: Boolean) {
-        val current = if (page == 1) page1Widgets else page2Widgets
-        val updated = DesktopWidget.entries.filter { w -> if (w == widget) enabled else w in current }
-        val csv = updated.joinToString(",") { it.id }
+    fun widgetsOf(page: Int): List<String> = if (page == 1) page1Widgets else page2Widgets
+
+    private fun storeWidgets(page: Int, tokens: List<String>) {
+        val csv = tokens.joinToString(",")
         if (page == 1) {
-            page1Widgets = updated
+            page1Widgets = tokens
             prefs.edit().putString(K_P1, csv).apply()
         } else {
-            page2Widgets = updated
+            page2Widgets = tokens
             prefs.edit().putString(K_P2, csv).apply()
         }
+    }
+
+    /** Включает или выключает встроенный виджет. Новый добавляется в конец ряда. */
+    fun setBuiltinWidget(page: Int, widget: DesktopWidget, enabled: Boolean) {
+        val current = widgetsOf(page)
+        val updated = when {
+            enabled && widget.id !in current -> current + widget.id
+            !enabled -> current.filter { it != widget.id }
+            else -> current
+        }
+        storeWidgets(page, updated)
+    }
+
+    fun addAppWidget(page: Int, appWidgetId: Int) {
+        storeWidgets(page, widgetsOf(page) + "aw:$appWidgetId")
+    }
+
+    fun removeWidgetToken(page: Int, token: String) {
+        storeWidgets(page, widgetsOf(page).filter { it != token })
+    }
+
+    fun updateUiScale(value: Float) {
+        uiScale = value.coerceIn(0.6f, 1.3f)
+        prefs.edit().putFloat(K_UI, uiScale).apply()
+    }
+
+    fun updateStatusScale(value: Float) {
+        statusScale = value.coerceIn(0.6f, 1.3f)
+        prefs.edit().putFloat(K_STATUS, statusScale).apply()
+    }
+
+    fun updateWidgetScale(value: Float) {
+        widgetScale = value.coerceIn(0.6f, 1f)
+        prefs.edit().putFloat(K_WIDGET, widgetScale).apply()
+    }
+
+    fun updateQuickScale(value: Float) {
+        quickScale = value.coerceIn(0.6f, 1.3f)
+        prefs.edit().putFloat(K_QUICK, quickScale).apply()
+    }
+
+    /** Возвращает все размеры к значениям по умолчанию. */
+    fun resetSizes() {
+        updateUiScale(DEFAULT_UI_SCALE)
+        updateStatusScale(1f)
+        updateWidgetScale(1f)
+        updateQuickScale(1f)
+        updatePanelScale(1f)
+        updateIconScale(1f)
+        updateClockScale(1f)
     }
 
     fun selectWallpaper(type: WallpaperType, path: String = "") {
@@ -132,7 +189,15 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putStringSet(K_HIDDEN, hiddenInDock.toSet()).apply()
     }
 
+    private fun parseTokens(csv: String?): List<String> =
+        (csv ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+
     private companion object {
+        const val DEFAULT_UI_SCALE = 0.85f
+        const val K_UI = "ui_scale"
+        const val K_STATUS = "status_scale"
+        const val K_WIDGET = "widget_scale"
+        const val K_QUICK = "quick_scale"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"

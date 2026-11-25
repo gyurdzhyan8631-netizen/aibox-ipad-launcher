@@ -53,6 +53,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.ui.glassSurface
+import com.aibox.launcher.widgets.AppWidgetController
+import androidx.compose.material.icons.rounded.Tune
 import kotlinx.coroutines.delay
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -70,6 +73,7 @@ enum class SettingsSection(
     DISPLAY("display", "Экран и яркость", Icons.Rounded.WbSunny, Color(0xFF0A84FF)),
     SOUND("sound", "Звук", Icons.Rounded.VolumeUp, Color(0xFFFF375F)),
     PERSONALIZATION("personalization", "Персонализация", Icons.Rounded.Palette, Color(0xFF5E5CE6)),
+    SIZES("sizes", "Размеры", Icons.Rounded.Tune, Color(0xFF64D2FF)),
     WALLPAPERS("wallpapers", "Обои", Icons.Rounded.Image, Color(0xFF30B0C7)),
     APPS("apps", "Приложения", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
     SYSTEM("system", "Система", Icons.Rounded.Info, Color(0xFF8E8E93)),
@@ -90,6 +94,7 @@ fun SettingsScreen(
     settings: LauncherSettings,
     apps: List<InstalledApp>,
     weatherStatus: String,
+    widgetController: AppWidgetController,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -133,8 +138,7 @@ fun SettingsScreen(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(width = 64.dp, height = 44.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF2A2E3B))
+                            .glassSurface(RoundedCornerShape(14.dp))
                             .clickable(onClick = onClose)
                     ) {
                         Icon(
@@ -176,7 +180,12 @@ fun SettingsScreen(
                             .padding(bottom = 12.dp)
                     ) {
                         when (section) {
-                            SettingsSection.HOME -> HomeSection(settings, weatherStatus)
+                            SettingsSection.HOME -> HomeSection(
+                                settings = settings,
+                                weatherStatus = weatherStatus,
+                                widgetController = widgetController,
+                                onPick = { picker = it }
+                            )
                             SettingsSection.WIFI -> WifiSection()
                             SettingsSection.BLUETOOTH -> BluetoothSection()
                             SettingsSection.DISPLAY -> DisplaySection()
@@ -187,6 +196,7 @@ fun SettingsScreen(
                                 onPick = { picker = it },
                                 onOpenSection = { section = it }
                             )
+                            SettingsSection.SIZES -> SizesSection(settings)
                             SettingsSection.WALLPAPERS -> WallpaperSection(settings, onOpenSection = { section = it })
                             SettingsSection.APPS -> AppsSection(settings, apps)
                             SettingsSection.SYSTEM -> SystemSection()
@@ -215,9 +225,7 @@ private fun Sidebar(
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
-            .clip(shape)
-            .background(SettingsColors.card)
-            .border(1.dp, SettingsColors.cardBorder, shape)
+            .glassSurface(shape)
             .verticalScroll(rememberScrollState())
             .padding(10.dp)
     ) {

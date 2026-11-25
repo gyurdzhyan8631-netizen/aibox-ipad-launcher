@@ -6,7 +6,8 @@ enum class DesktopWidget(val id: String, val title: String) {
     POWER("power", "Питание"),
     NETWORK("network", "Сеть"),
     WEATHER("weather", "Погода"),
-    MUSIC("music", "Музыка");
+    MUSIC("music", "Музыка"),
+    APPS("apps", "Все приложения");
 
     companion object {
         fun parse(csv: String): List<DesktopWidget> =

@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconView
 import kotlin.math.abs
 
@@ -102,8 +103,8 @@ fun CarouselDockBar(
         modifier = modifier
             .height(panelHeight)
             .clip(shape)
-            .background(Color(0x661C1C1E))
-            .border(1.dp, Color(0x33FFFFFF), shape)
+            .background(Color(0x40080A10))
+            .glassSurface(shape)
             .padding(horizontal = 10.dp)
     ) {
         DockShortcut(

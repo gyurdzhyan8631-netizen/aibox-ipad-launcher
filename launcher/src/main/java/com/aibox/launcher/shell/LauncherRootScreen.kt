@@ -1,6 +1,7 @@
 package com.aibox.launcher.shell
 
 import android.content.Context
+import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -27,6 +28,8 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,6 +56,9 @@ import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
+import com.aibox.launcher.core.ui.ScaledContent
+import com.aibox.launcher.widgets.AppWidgetController
+import androidx.compose.ui.unit.Density
 import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.CarouselDockBar
 import com.aibox.launcher.dock.SystemNavigationCapsule
@@ -78,15 +84,43 @@ import java.util.Locale
 @Composable
 fun LauncherRootScreen() {
     val context = LocalContext.current
+    // Настройки хранятся на устройстве и применяются сразу
+    val prefs = remember { context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE) }
+    val settings = remember { LauncherSettings(prefs) }
+
+    // Общий масштаб интерфейса: меняет и размеры (dp), и текст (sp), и «экранные» dp для расчётов.
+    val baseDensity = LocalDensity.current
+    val baseConfig = LocalConfiguration.current
+    val uiScale = settings.uiScale
+    val scaledConfig = remember(baseConfig, uiScale) {
+        Configuration(baseConfig).apply {
+            screenWidthDp = (baseConfig.screenWidthDp / uiScale).toInt()
+            screenHeightDp = (baseConfig.screenHeightDp / uiScale).toInt()
+        }
+    }
+    CompositionLocalProvider(
+        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
+        LocalConfiguration provides scaledConfig
+    ) {
+        LauncherRootContent(settings)
+    }
+}
+
+@Composable
+private fun LauncherRootContent(settings: LauncherSettings) {
+    val context = LocalContext.current
     val systemActions = remember { SystemActionsHandler(context) }
     val controller = remember(context) { ControlCenterSystemController(context) }
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     val compact = LocalConfiguration.current.screenHeightDp < 480
 
-    // --- Настройки (хранятся на устройстве и применяются сразу) ---
-    val prefs = remember { context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE) }
-    val settings = remember { LauncherSettings(prefs) }
+    // Виджеты других приложений
+    val widgetController = remember { AppWidgetController(context) }
+    DisposableEffect(widgetController) {
+        widgetController.startListening()
+        onDispose { widgetController.stopListening() }
+    }
 
     // --- Погода: офлайн-приоритет (кэш на устройстве + фоновое обновление) ---
     val weatherRepo = remember { WeatherRepository(context) }
@@ -263,7 +297,12 @@ fun LauncherRootScreen() {
             HomeScreenPage(
                 widgets = if (page == 0) settings.page1Widgets else settings.page2Widgets,
                 weather = weatherInfo,
+                apps = apps,
+                onLaunchApp = launchApp,
                 onOpenMusic = openMusic,
+                widgetController = widgetController,
+                iconScale = settings.iconScale,
+                widgetScale = settings.widgetScale,
                 topPadding = pageTop,
                 bottomPadding = pageBottom
             )
@@ -295,10 +334,13 @@ fun LauncherRootScreen() {
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    StatusIconsCapsule(
-                        status = rememberStatusState(),
-                        onClick = { showQuickPanel = true }
-                    )
+                    val status = rememberStatusState()
+                    ScaledContent(settings.statusScale) {
+                        StatusIconsCapsule(
+                            status = status,
+                            onClick = { showQuickPanel = true }
+                        )
+                    }
 
                     Box(
                         contentAlignment = Alignment.Center,
@@ -385,24 +427,25 @@ fun LauncherRootScreen() {
                 launchApp(app)
             },
             onDismiss = { showAppDrawer = false },
-            iconScale = settings.iconScale,
-            bottomInset = with(density) { bottomPx.toDp() } + verticalPad + 14.dp
+            iconScale = settings.iconScale
         )
 
         // 6. Шторка быстрого доступа
-        QuickPanelOverlay(
-            visible = showQuickPanel,
-            controller = controller,
-            weatherText = shownWeather?.let { formatTemp(it.tempC) } ?: "Погода",
-            onDismiss = { showQuickPanel = false },
-            onOpenApps = {
-                showQuickPanel = false
-                showAppDrawer = true
-            },
-            onOpenSettings = openSettings,
-            onOpenMusic = openMusic,
-            onOpenNavigation = openNavigation
-        )
+        ScaledContent(settings.quickScale) {
+            QuickPanelOverlay(
+                visible = showQuickPanel,
+                controller = controller,
+                weatherText = shownWeather?.let { formatTemp(it.tempC) } ?: "Погода",
+                onDismiss = { showQuickPanel = false },
+                onOpenApps = {
+                    showQuickPanel = false
+                    showAppDrawer = true
+                },
+                onOpenSettings = openSettings,
+                onOpenMusic = openMusic,
+                onOpenNavigation = openNavigation
+            )
+        }
 
         // 7. Настройки (как в iPad)
         SettingsScreen(
@@ -411,6 +454,7 @@ fun LauncherRootScreen() {
             settings = settings,
             apps = apps,
             weatherStatus = weatherStatus,
+            widgetController = widgetController,
             onClose = { showSettings = false }
         )
     }

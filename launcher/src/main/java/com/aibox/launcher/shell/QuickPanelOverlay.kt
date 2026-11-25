@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
+import com.aibox.launcher.core.ui.glassSurface
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -79,13 +80,8 @@ import java.util.Locale
 
 private val PanelBlue = Color(0xFF0A84FF)
 
-private fun Modifier.glass(radius: Dp = 28.dp): Modifier {
-    val shape = RoundedCornerShape(radius)
-    return this
-        .clip(shape)
-        .background(Color(0x33FFFFFF))
-        .border(1.dp, Color(0x40FFFFFF), shape)
-}
+private fun Modifier.glass(radius: Dp = 28.dp): Modifier =
+    this.glassSurface(RoundedCornerShape(radius))
 
 private fun sendMediaKey(audio: AudioManager?, keyCode: Int) {
     if (audio == null) return
