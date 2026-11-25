@@ -83,7 +83,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         private set
     var widgetPlacements by mutableStateOf(readWidgetPlacements())
         private set
-    var showCelestialBodies by mutableStateOf(prefs.getBoolean(K_CELESTIAL_BODIES, false))
+    var showCelestialBodies by mutableStateOf(prefs.getBoolean(K_CELESTIAL_BODIES, true))
         private set
     var hiddenQuickPanelTiles by mutableStateOf(
         prefs.getStringSet(K_HIDDEN_QUICK_PANEL_TILES, emptySet())?.toSet() ?: emptySet()

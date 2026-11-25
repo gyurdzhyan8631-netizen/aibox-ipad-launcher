@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -119,13 +120,32 @@ internal fun SettingsRow(
         IconBadge(icon, iconColor)
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, fontSize = 17.sp)
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 17.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (subtitle != null) {
-                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 12.sp)
+                Text(
+                    text = subtitle,
+                    color = SettingsColors.textSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
         if (value.isNotEmpty()) {
-            Text(text = value, color = SettingsColors.textSecondary, fontSize = 15.sp)
+            Text(
+                text = value,
+                color = SettingsColors.textSecondary,
+                fontSize = 15.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 160.dp)
+            )
         }
         if (showChevron && onClick != null) {
             Spacer(Modifier.width(6.dp))
@@ -157,9 +177,21 @@ internal fun SwitchRow(
         IconBadge(icon, iconColor)
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, fontSize = 17.sp)
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 17.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             if (subtitle != null) {
-                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 12.sp)
+                Text(
+                    text = subtitle,
+                    color = SettingsColors.textSecondary,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
         Switch(

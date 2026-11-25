@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -83,8 +84,8 @@ fun DynamicWeatherWallpaper(
         WeatherCondition.WIND -> Color(0xFF7C8DA6) to 0.20f
     }
 
-    val topTarget = fixed?.first ?: lerp(topBase, tint, amount)
-    val bottomTarget = fixed?.second ?: lerp(bottomBase, tint, amount)
+    val topTarget = lerp(fixed?.first ?: topBase, tint, amount)
+    val bottomTarget = lerp(fixed?.second ?: bottomBase, tint, amount)
 
     val topColor by animateColorAsState(topTarget, tween(3000), label = "skyTop")
     val bottomColor by animateColorAsState(bottomTarget, tween(3000), label = "skyBottom")
@@ -94,13 +95,13 @@ fun DynamicWeatherWallpaper(
             .fillMaxSize()
             .background(Brush.verticalGradient(listOf(topColor, bottomColor)))
     ) {
+        val transition = rememberInfiniteTransition(label = "weather")
         val particlePhase = if (
             weather == WeatherCondition.RAIN ||
             weather == WeatherCondition.HEAVY_RAIN ||
             weather == WeatherCondition.THUNDERSTORM ||
             weather == WeatherCondition.SNOW
         ) {
-            val transition = rememberInfiniteTransition(label = "weather")
             val phase by transition.animateFloat(
                 initialValue = 0f,
                 targetValue = 1f,
@@ -109,6 +110,26 @@ fun DynamicWeatherWallpaper(
                     repeatMode = RepeatMode.Restart
                 ),
                 label = "weatherParticles"
+            )
+            phase
+        } else {
+            0f
+        }
+        val atmospherePhase = if (
+            dayPeriod == DayPeriod.MORNING ||
+            dayPeriod == DayPeriod.DAY ||
+            weather == WeatherCondition.CLOUDY ||
+            weather == WeatherCondition.OVERCAST ||
+            weather == WeatherCondition.FOG
+        ) {
+            val phase by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 30_000),
+                    repeatMode = RepeatMode.Restart
+                ),
+                label = "weatherAtmosphere"
             )
             phase
         } else {
@@ -134,6 +155,18 @@ fun DynamicWeatherWallpaper(
             val bodyColor = if (isDay) Color(0xFFFFD166) else Color(0xFFE9F1FF)
             val bodyRadius = minOf(width, height) * 0.022f
 
+            if (dayPeriod == DayPeriod.NIGHT) {
+                repeat(28) { index ->
+                    val x = width * ((index * 0.618f + 0.17f) % 1f)
+                    val y = height * ((index * 0.371f + 0.08f) % 0.48f)
+                    drawCircle(
+                        color = Color.White.copy(alpha = 0.38f),
+                        radius = 1.2.dp.toPx(),
+                        center = Offset(x, y)
+                    )
+                }
+            }
+
             if (showCelestialBodies) {
                 drawCircle(
                     color = bodyColor.copy(alpha = 0.08f),
@@ -145,6 +178,50 @@ fun DynamicWeatherWallpaper(
                     radius = bodyRadius,
                     center = Offset(bodyX, bodyY)
                 )
+            }
+
+            if (dayPeriod == DayPeriod.DAY ||
+                weather == WeatherCondition.CLOUDY ||
+                weather == WeatherCondition.OVERCAST
+            ) {
+                val cloudAlpha = when (weather) {
+                    WeatherCondition.CLOUDY -> 0.24f
+                    WeatherCondition.OVERCAST -> 0.34f
+                    else -> 0.16f
+                }
+                repeat(3) { index ->
+                    val cloudX = width * ((index * 0.43f + atmospherePhase) % 1f)
+                    val cloudY = height * (0.25f + index * 0.09f)
+                    val cloudRadius = minOf(width, height) * (0.035f + index * 0.004f)
+                    val cloudColor = Color.White.copy(alpha = cloudAlpha)
+                    drawCircle(cloudColor, cloudRadius, Offset(cloudX, cloudY))
+                    drawCircle(cloudColor, cloudRadius * 0.78f, Offset(cloudX - cloudRadius, cloudY + cloudRadius * 0.3f))
+                    drawCircle(cloudColor, cloudRadius * 0.88f, Offset(cloudX + cloudRadius, cloudY + cloudRadius * 0.25f))
+                    drawRect(
+                        color = cloudColor,
+                        topLeft = Offset(cloudX - cloudRadius * 1.6f, cloudY + cloudRadius * 0.25f),
+                        size = Size(cloudRadius * 3.2f, cloudRadius * 0.65f)
+                    )
+                }
+            }
+
+            if (dayPeriod == DayPeriod.MORNING || weather == WeatherCondition.FOG) {
+                val fogAlpha = if (weather == WeatherCondition.FOG) 0.22f else 0.08f
+                repeat(3) { index ->
+                    val fogY = height * (0.43f + index * 0.12f)
+                    val fogX = width * ((atmospherePhase + index * 0.37f) % 1f) - width * 0.35f
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0f),
+                                Color(0xFFE5EAF0).copy(alpha = fogAlpha),
+                                Color.White.copy(alpha = 0f)
+                            )
+                        ),
+                        topLeft = Offset(fogX, fogY),
+                        size = Size(width * 0.7f, height * 0.075f)
+                    )
+                }
             }
 
             when (weather) {
@@ -162,6 +239,19 @@ fun DynamicWeatherWallpaper(
                             start = Offset(x, y),
                             end = Offset(x - 5.dp.toPx(), y + 14.dp.toPx()),
                             strokeWidth = 1.5.dp.toPx()
+                        )
+                    }
+                    drawRect(
+                        color = Color(0xFF1E293B).copy(alpha = 0.18f),
+                        topLeft = Offset(0f, height * 0.88f),
+                        size = Size(width, height * 0.12f)
+                    )
+                    repeat(4) { index ->
+                        val puddleX = width * (0.12f + index * 0.23f)
+                        drawOval(
+                            color = Color(0xFFB7D7FF).copy(alpha = 0.2f),
+                            topLeft = Offset(puddleX, height * (0.91f + (index % 2) * 0.035f)),
+                            size = Size(width * 0.09f, height * 0.012f)
                         )
                     }
                 }

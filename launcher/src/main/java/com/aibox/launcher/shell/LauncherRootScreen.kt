@@ -218,6 +218,7 @@ fun LauncherRootScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .background(Color(0xFF080B14))
                 // Свайп вниз от верхнего края открывает шторку быстрого доступа.
                 .pointerInput(Unit) {
                     var startedAtTop = false
@@ -251,14 +252,16 @@ fun LauncherRootScreen(
                     )
                 }
         ) {
-        // 1. Обои: тема + время суток + погода
-        DynamicWeatherWallpaper(
-            dayPeriod = dayPeriod,
-            weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
-            theme = settings.theme,
-            currentTime = now.toLocalTime(),
-            showCelestialBodies = settings.showCelestialBodies
-        )
+        // Живые обои отображаются только на рабочем столе, не под полноэкранными панелями.
+        if (!showQuickPanel && !showAppDrawer && !showSettings) {
+            DynamicWeatherWallpaper(
+                dayPeriod = dayPeriod,
+                weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
+                theme = settings.theme,
+                currentTime = now.toLocalTime(),
+                showCelestialBodies = settings.showCelestialBodies
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -361,7 +364,7 @@ fun LauncherRootScreen(
                 }
             }
 
-            // 4. Низ: капсула кнопок + док (одной высоты)
+            // 4. Низ: системная капсула и док рабочего стола.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -386,19 +389,21 @@ fun LauncherRootScreen(
                     onRecents = { systemActions.triggerRecents() }
                 )
 
-                Spacer(Modifier.width(14.dp))
+                if (!showQuickPanel && !showAppDrawer && !showSettings) {
+                    Spacer(Modifier.width(14.dp))
 
-                CarouselDockBar(
-                    apps = dockApps,
-                    onLaunchApp = launchApp,
-                    onOpenDrawer = { showAppDrawer = !showAppDrawer },
-                    onOpenSettings = { openSettings("personalization") },
-                    modifier = Modifier.weight(1f),
-                    scale = settings.panelScale,
-                    customIcons = customDockIcons,
-                    onReorderApps = settings::updateDockAppOrder,
-                    iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
-                )
+                    CarouselDockBar(
+                        apps = dockApps,
+                        onLaunchApp = launchApp,
+                        onOpenDrawer = { showAppDrawer = !showAppDrawer },
+                        onOpenSettings = { openSettings("personalization") },
+                        modifier = Modifier.weight(1f),
+                        scale = settings.panelScale,
+                        customIcons = customDockIcons,
+                        onReorderApps = settings::updateDockAppOrder,
+                        iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
+                    )
+                }
             }
         }
 

@@ -39,6 +39,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
@@ -106,6 +108,9 @@ fun SettingsScreen(
         var picker by remember { mutableStateOf<PickerRequest?>(null) }
         val formatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
         var time by remember { mutableStateOf(LocalTime.now().format(formatter)) }
+        LaunchedEffect(visible, initialSectionId) {
+            if (visible) section = SettingsSection.fromId(initialSectionId)
+        }
         LaunchedEffect(Unit) {
             while (true) {
                 time = LocalTime.now().format(formatter)
@@ -152,7 +157,9 @@ fun SettingsScreen(
                         color = Color.White,
                         fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(text = time, color = Color.White, fontSize = 20.sp)
                 }
@@ -170,43 +177,45 @@ fun SettingsScreen(
                             .weight(0.34f)
                             .fillMaxHeight()
                     )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier
-                            .weight(0.66f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
-                            .padding(bottom = 12.dp)
-                    ) {
-                        when (section) {
-                            SettingsSection.HOME -> HomeSection(
-                                settings = settings,
-                                weatherStatus = weatherStatus,
-                                apps = apps,
-                                widgetIdsByScreen = widgetIdsByScreen,
-                                widgetLabels = widgetLabels,
-                                onAddWidget = onAddWidget,
-                                onRemoveWidget = onRemoveWidget
-                            )
-                            SettingsSection.WIFI -> WifiSection()
-                            SettingsSection.BLUETOOTH -> BluetoothSection()
-                            SettingsSection.DISPLAY -> DisplaySection(settings)
-                            SettingsSection.SOUND -> SoundSection()
-                            SettingsSection.PERSONALIZATION -> PersonalizationSection(
-                                settings = settings,
-                                apps = apps,
-                                onPick = { picker = it },
-                                onOpenSection = { section = it }
-                            )
-                            SettingsSection.APPS -> AppsSection(
-                                settings = settings,
-                                apps = apps,
-                                customDockIcons = customDockIcons,
-                                onChooseDockIcon = onChooseDockIcon,
-                                onClearDockIcon = onClearDockIcon
-                            )
-                            SettingsSection.SYSTEM -> SystemSection()
-                            SettingsSection.ABOUT -> AboutSection()
+                    key(section) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                            modifier = Modifier
+                                .weight(0.66f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                                .padding(bottom = 12.dp)
+                        ) {
+                            when (section) {
+                                SettingsSection.HOME -> HomeSection(
+                                    settings = settings,
+                                    weatherStatus = weatherStatus,
+                                    apps = apps,
+                                    widgetIdsByScreen = widgetIdsByScreen,
+                                    widgetLabels = widgetLabels,
+                                    onAddWidget = onAddWidget,
+                                    onRemoveWidget = onRemoveWidget
+                                )
+                                SettingsSection.WIFI -> WifiSection()
+                                SettingsSection.BLUETOOTH -> BluetoothSection()
+                                SettingsSection.DISPLAY -> DisplaySection(settings)
+                                SettingsSection.SOUND -> SoundSection()
+                                SettingsSection.PERSONALIZATION -> PersonalizationSection(
+                                    settings = settings,
+                                    apps = apps,
+                                    onPick = { picker = it },
+                                    onOpenSection = { section = it }
+                                )
+                                SettingsSection.APPS -> AppsSection(
+                                    settings = settings,
+                                    apps = apps,
+                                    customDockIcons = customDockIcons,
+                                    onChooseDockIcon = onChooseDockIcon,
+                                    onClearDockIcon = onClearDockIcon
+                                )
+                                SettingsSection.SYSTEM -> SystemSection()
+                                SettingsSection.ABOUT -> AboutSection()
+                            }
                         }
                     }
                 }
@@ -253,7 +262,9 @@ private fun Sidebar(
                     text = item.title,
                     color = Color.White,
                     fontSize = 16.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
