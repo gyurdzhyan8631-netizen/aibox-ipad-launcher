@@ -1,6 +1,7 @@
 package com.aibox.launcher.icons
 
-import android.content.pm.PackageManager
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,30 +36,45 @@ import com.aibox.launcher.core.model.InstalledApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private object AppIconCache {
+internal object AppIconCache {
     private val cache = LruCache<String, ImageBitmap>(256)
     fun get(packageName: String): ImageBitmap? = cache.get(packageName)
     fun put(packageName: String, icon: ImageBitmap) {
         cache.put(packageName, icon)
     }
+    fun remove(packageName: String) {
+        cache.remove(packageName)
+    }
 }
 
-private fun loadIcon(pm: PackageManager, packageName: String): ImageBitmap? =
-    runCatching {
-        pm.getApplicationIcon(packageName).toBitmap(width = 160, height = 160).asImageBitmap()
+private fun loadIcon(context: Context, packageName: String): ImageBitmap? {
+    // сначала — своя иконка, выбранная пользователем
+    val custom = CustomIconStore.file(context, packageName)
+    if (custom.exists()) {
+        val bitmap = runCatching { BitmapFactory.decodeFile(custom.path)?.asImageBitmap() }.getOrNull()
+        if (bitmap != null) {
+            AppIconCache.put(packageName, bitmap)
+            return bitmap
+        }
+    }
+    return runCatching {
+        context.packageManager.getApplicationIcon(packageName)
+            .toBitmap(width = 160, height = 160).asImageBitmap()
     }.getOrNull()?.also { AppIconCache.put(packageName, it) }
+}
 
 /** Загружает иконку приложения в фоне и кэширует её. */
 @Composable
 fun rememberAppIcon(packageName: String): ImageBitmap? {
     val context = LocalContext.current
+    val version = CustomIconStore.version
     val state = produceState<ImageBitmap?>(
         initialValue = AppIconCache.get(packageName),
-        key1 = packageName
+        key1 = packageName,
+        key2 = version
     ) {
-        if (value == null) {
-            value = withContext(Dispatchers.IO) { loadIcon(context.packageManager, packageName) }
-        }
+        val cached = AppIconCache.get(packageName)
+        value = cached ?: withContext(Dispatchers.IO) { loadIcon(context, packageName) }
     }
     return state.value
 }

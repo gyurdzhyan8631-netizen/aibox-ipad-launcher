@@ -35,12 +35,25 @@ fun WallpaperLayer(
     dayPeriod: DayPeriod,
     weather: WeatherCondition,
     theme: WallpaperTheme,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nowMinutes: Int = 720,
+    sunriseMin: Int = 390,
+    sunsetMin: Int = 1110,
+    precipitation: Boolean = true
 ) {
     val fileOk = path.isNotEmpty() && File(path).exists()
     when {
         type == WallpaperType.IMAGE && fileOk -> ImageWallpaper(path, modifier)
         type == WallpaperType.VIDEO && fileOk -> VideoWallpaper(path, modifier)
+        type == WallpaperType.LIVE_SKY -> LiveSkyWallpaper(
+            nowMinutes = nowMinutes,
+            sunriseMin = sunriseMin,
+            sunsetMin = sunsetMin,
+            weather = weather,
+            theme = theme,
+            precipitation = precipitation,
+            modifier = modifier
+        )
         type == WallpaperType.SYSTEM -> Box(modifier = modifier.fillMaxSize())
         else -> DynamicWeatherWallpaper(dayPeriod, weather, modifier, theme)
     }

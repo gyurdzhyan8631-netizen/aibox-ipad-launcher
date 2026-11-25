@@ -90,6 +90,7 @@ import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.model.WallpaperTheme
+import com.aibox.launcher.icons.CustomIconStore
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
@@ -549,7 +550,7 @@ internal fun PersonalizationSection(
                     .size(width = 150.dp, height = 72.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(
-                        if (settings.wallpaperType == WallpaperType.THEME) {
+                        if (settings.wallpaperType == WallpaperType.THEME || settings.wallpaperType == WallpaperType.LIVE_SKY) {
                             Brush.verticalGradient(listOf(previewTop, previewBottom))
                         } else {
                             Brush.verticalGradient(listOf(Color(0xFF2A2E3B), Color(0xFF14161E)))
@@ -564,8 +565,11 @@ internal fun PersonalizationSection(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Обои", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (settings.wallpaperType == WallpaperType.THEME) "Тема: ${settings.theme.title}"
-                    else settings.wallpaperType.title,
+                    when (settings.wallpaperType) {
+                        WallpaperType.THEME -> "Тема: ${settings.theme.title}"
+                        WallpaperType.LIVE_SKY -> "Живое небо · тема ${settings.theme.title}"
+                        else -> settings.wallpaperType.title
+                    },
                     color = SettingsColors.textSecondary,
                     fontSize = 14.sp
                 )
@@ -585,10 +589,13 @@ internal fun PersonalizationSection(
             rowThemes.forEach { theme ->
                 ThemeCard(
                     theme = theme,
-                    selected = theme == settings.theme && settings.wallpaperType == WallpaperType.THEME,
+                    selected = theme == settings.theme &&
+                        (settings.wallpaperType == WallpaperType.THEME || settings.wallpaperType == WallpaperType.LIVE_SKY),
                     onClick = {
                         settings.updateTheme(theme)
-                        settings.selectWallpaper(WallpaperType.THEME)
+                        if (settings.wallpaperType != WallpaperType.LIVE_SKY) {
+                            settings.selectWallpaper(WallpaperType.THEME)
+                        }
                     },
                     modifier = Modifier.weight(1f)
                 )
@@ -775,9 +782,29 @@ private fun ThemeCard(
 // ---------------------------------------------------------------- Приложения
 
 @Composable
-internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
+internal fun AppsSection(
+    settings: LauncherSettings,
+    apps: List<InstalledApp>,
+    onPick: (PickerRequest) -> Unit
+) {
     val context = LocalContext.current
-    HintText("Переключатель — показывать приложение в доке. Нажатие на название открывает системные настройки приложения.")
+    val scope = rememberCoroutineScope()
+    var pendingPackage by remember { mutableStateOf<String?>(null) }
+
+    val pickIcon = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val packageName = pendingPackage
+        pendingPackage = null
+        if (uri != null && packageName != null) {
+            scope.launch {
+                val ok = kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    CustomIconStore.set(context, packageName, uri)
+                }
+                if (!ok) Toast.makeText(context, "Не удалось поставить иконку", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    HintText("Нажмите на приложение, чтобы поставить свою иконку. Переключатель — показывать ли приложение в доке. В доке иконки можно переставлять: зажмите и перетащите.")
     SettingsGroup {
         apps.forEachIndexed { index, app ->
             if (index > 0) RowDivider()
@@ -786,7 +813,35 @@ internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { SystemSettingsLauncher.openAppDetails(context, app.packageName) }
+                    .clickable {
+                        onPick(
+                            PickerRequest(
+                                title = app.label,
+                                options = listOf(
+                                    PickerOption("icon", "Выбрать свою иконку…"),
+                                    PickerOption("reset", "Вернуть стандартную иконку"),
+                                    PickerOption("info", "Системные настройки приложения")
+                                ),
+                                selectedKey = "",
+                                onSelect = { key ->
+                                    when (key) {
+                                        "icon" -> {
+                                            pendingPackage = app.packageName
+                                            runCatching { pickIcon.launch("image/*") }.onFailure {
+                                                Toast.makeText(
+                                                    context,
+                                                    "На устройстве нет приложения для выбора файлов",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        }
+                                        "reset" -> CustomIconStore.clear(context, app.packageName)
+                                        else -> SystemSettingsLauncher.openAppDetails(context, app.packageName)
+                                    }
+                                }
+                            )
+                        )
+                    }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 if (icon != null) {
@@ -806,12 +861,12 @@ internal fun AppsSection(settings: LauncherSettings, apps: List<InstalledApp>) {
                     )
                 }
                 Spacer(Modifier.width(14.dp))
-                Text(
-                    text = app.label,
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = app.label, color = Color.White, fontSize = 17.sp)
+                    if (CustomIconStore.has(context, app.packageName)) {
+                        Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
+                    }
+                }
                 androidx.compose.material3.Switch(
                     checked = app.packageName !in settings.hiddenInDock,
                     onCheckedChange = { settings.setShownInDock(app.packageName, it) }
@@ -951,11 +1006,30 @@ internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (Settin
             iconColor = Color(0xFF5E5CE6),
             title = "Темы оформления",
             value = if (settings.wallpaperType == WallpaperType.THEME) "Выбрано" else "",
-            subtitle = "Градиенты, включая «Авто (по солнцу)»",
+            subtitle = "Градиенты, включая «Авто (по солнцу)». Для живого неба выберите тему в «Персонализации»",
             onClick = {
                 settings.selectWallpaper(WallpaperType.THEME)
                 onOpenSection(SettingsSection.PERSONALIZATION)
             }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.WbSunny,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Живое небо",
+            value = if (settings.wallpaperType == WallpaperType.LIVE_SKY) "Выбрано" else "",
+            subtitle = "Солнце и луна идут по реальному времени суток, дождь и снег — по погоде. " +
+                "Хорошо сочетается с темами День, Рассвет и Ночь",
+            onClick = { settings.selectWallpaper(WallpaperType.LIVE_SKY) }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Cloud,
+            iconColor = Color(0xFF64D2FF),
+            title = "Осадки в живом небе",
+            subtitle = "Дождь и снег. Выключите, если слабое устройство",
+            checked = settings.skyPrecipitation,
+            onCheckedChange = { settings.updateSkyPrecipitation(it) }
         )
         RowDivider()
         SettingsRow(

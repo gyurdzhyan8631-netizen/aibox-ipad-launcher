@@ -36,6 +36,13 @@ class WeatherRepository(context: Context) {
         }.getOrNull()
     }
 
+    /** Координаты последнего найденного города — нужны для расчёта восхода и заката. */
+    fun coordinates(): Pair<Double, Double>? {
+        val lat = prefs.getString(KEY_PLACE_LAT, null)?.toDoubleOrNull() ?: return null
+        val lon = prefs.getString(KEY_PLACE_LON, null)?.toDoubleOrNull() ?: return null
+        return lat to lon
+    }
+
     suspend fun refresh(city: String): Result<WeatherSnapshot> = withContext(Dispatchers.IO) {
         runCatching {
             val query = city.trim()

@@ -60,6 +60,14 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var page2Widgets by mutableStateOf(parseTokens(prefs.getString(K_P2, "weather,music")))
         private set
 
+    /** Дождь и снег в «Живом небе» (самая «тяжёлая» часть анимации). */
+    var skyPrecipitation by mutableStateOf(prefs.getBoolean(K_SKY_PRECIP, true))
+        private set
+
+    /** Порядок иконок в доке (пакеты); новые приложения встают в конец. */
+    var dockOrder by mutableStateOf(parseTokens(prefs.getString(K_DOCK_ORDER, "")))
+        private set
+
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
         private set
     var wallpaperPath by mutableStateOf(prefs.getString(K_WP_PATH, "") ?: "")
@@ -173,6 +181,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updateClockScale(1f)
     }
 
+    fun updateSkyPrecipitation(value: Boolean) {
+        skyPrecipitation = value
+        prefs.edit().putBoolean(K_SKY_PRECIP, value).apply()
+    }
+
+    fun updateDockOrder(packages: List<String>) {
+        dockOrder = packages
+        prefs.edit().putString(K_DOCK_ORDER, packages.joinToString(",")).apply()
+    }
+
     fun selectWallpaper(type: WallpaperType, path: String = "") {
         wallpaperType = type
         wallpaperPath = path
@@ -194,6 +212,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     private companion object {
         const val DEFAULT_UI_SCALE = 0.85f
+        const val K_SKY_PRECIP = "sky_precip"
+        const val K_DOCK_ORDER = "dock_order"
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
         const val K_WIDGET = "widget_scale"

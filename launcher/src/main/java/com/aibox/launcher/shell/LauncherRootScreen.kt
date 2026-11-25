@@ -71,6 +71,7 @@ import com.aibox.launcher.wallpaper.WallpaperLayer
 import com.aibox.launcher.widgets.WeatherWidgetInfo
 import com.aibox.launcher.weather.CityNotFoundException
 import com.aibox.launcher.weather.WeatherRepository
+import com.aibox.launcher.weather.SunCalc
 import com.aibox.launcher.weather.ageText
 import com.aibox.launcher.weather.formatTemp
 import com.aibox.launcher.weather.isStale
@@ -164,7 +165,11 @@ private fun LauncherRootContent(settings: LauncherSettings) {
     val apps by produceState(initialValue = emptyList<InstalledApp>()) {
         value = InstalledAppsRepository(context).loadLaunchableApps()
     }
-    val dockApps = apps.filter { it.packageName !in settings.hiddenInDock }
+    val dockApps = remember(apps, settings.hiddenInDock, settings.dockOrder) {
+        val order = settings.dockOrder
+        apps.filter { it.packageName !in settings.hiddenInDock }
+            .sortedBy { app -> order.indexOf(app.packageName).let { if (it < 0) Int.MAX_VALUE else it } }
+    }
 
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -209,6 +214,12 @@ private fun LauncherRootContent(settings: LauncherSettings) {
             now = LocalDateTime.now()
             delay(1000L)
         }
+    }
+
+    // Восход и закат по координатам города (без интернета); если города нет — 6:30 и 18:30.
+    val today = now.toLocalDate()
+    val sunTimes = remember(shownWeather?.cityName, today) {
+        weatherRepo.coordinates()?.let { (lat, lon) -> SunCalc.sunriseSunset(lat, lon, today) }
     }
 
     val dayPeriod = when (now.hour) {
@@ -286,7 +297,11 @@ private fun LauncherRootContent(settings: LauncherSettings) {
             path = settings.wallpaperPath,
             dayPeriod = dayPeriod,
             weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
-            theme = settings.theme
+            theme = settings.theme,
+            nowMinutes = now.hour * 60 + now.minute,
+            sunriseMin = sunTimes?.first ?: 390,
+            sunsetMin = sunTimes?.second ?: 1110,
+            precipitation = settings.skyPrecipitation
         )
 
         // 2. Рабочие столы 1 и 2 — на весь экран, ничего не обрезается жёсткой границей
@@ -412,6 +427,7 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                     onLaunchApp = launchApp,
                     onOpenDrawer = { showAppDrawer = !showAppDrawer },
                     onOpenSettings = { openSettings("personalization") },
+                    onReorder = { settings.updateDockOrder(it) },
                     modifier = Modifier.weight(1f),
                     scale = settings.panelScale
                 )
