@@ -2,7 +2,7 @@ name: Android CI Build
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, feature/aibox-ui-updates ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
