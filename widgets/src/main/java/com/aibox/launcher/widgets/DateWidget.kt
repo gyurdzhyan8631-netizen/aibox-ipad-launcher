@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import kotlinx.coroutines.delay
 import java.time.LocalDate
@@ -19,7 +20,10 @@ import java.util.Locale
 
 /** Виджет «Дата»: день недели, число и месяц. */
 @Composable
-fun DateWidget(modifier: Modifier = Modifier) {
+fun DateWidget(
+    modifier: Modifier = Modifier,
+    cardStyle: WidgetCardStyle = WidgetCardStyle.GLASS
+) {
     val tokens = LocalLauncherTokens.current
     var today by remember { mutableStateOf(LocalDate.now()) }
 
@@ -31,7 +35,7 @@ fun DateWidget(modifier: Modifier = Modifier) {
     }
 
     val ru = Locale("ru")
-    GlassCard(modifier = modifier) {
+    GlassCard(modifier = modifier, style = cardStyle) {
         Column {
             Text(
                 text = today.format(DateTimeFormatter.ofPattern("EEEE", ru))

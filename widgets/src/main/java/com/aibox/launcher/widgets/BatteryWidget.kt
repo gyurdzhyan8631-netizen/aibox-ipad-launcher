@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import kotlinx.coroutines.delay
 
@@ -37,7 +38,10 @@ private fun readPower(context: Context): PowerInfo {
 
 /** Виджет «Питание»: заряд батареи или питание от автомобиля. */
 @Composable
-fun BatteryWidget(modifier: Modifier = Modifier) {
+fun BatteryWidget(
+    modifier: Modifier = Modifier,
+    cardStyle: WidgetCardStyle = WidgetCardStyle.GLASS
+) {
     val context = LocalContext.current
     val tokens = LocalLauncherTokens.current
     var info by remember { mutableStateOf(readPower(context)) }
@@ -49,7 +53,7 @@ fun BatteryWidget(modifier: Modifier = Modifier) {
         }
     }
 
-    GlassCard(modifier = modifier) {
+    GlassCard(modifier = modifier, style = cardStyle) {
         Column {
             Text(
                 text = "Питание",

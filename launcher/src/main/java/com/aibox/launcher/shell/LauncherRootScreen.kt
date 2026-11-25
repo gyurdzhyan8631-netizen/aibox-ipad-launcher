@@ -256,7 +256,8 @@ fun LauncherRootScreen(
             dayPeriod = dayPeriod,
             weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
             theme = settings.theme,
-            currentTime = now.toLocalTime()
+            currentTime = now.toLocalTime(),
+            showCelestialBodies = settings.showCelestialBodies
         )
 
         Column(
@@ -297,13 +298,18 @@ fun LauncherRootScreen(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
                             .background(Color(0x401C1C1E))
                             .border(1.dp, Color(0x33FFFFFF), CircleShape)
                             .clickable { showQuickPanel = true }
                     ) {
-                        Icon(Icons.Rounded.Tune, "Шторка быстрого доступа", tint = Color.White)
+                        Icon(
+                            Icons.Rounded.Tune,
+                            "Шторка быстрого доступа",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -329,7 +335,10 @@ fun LauncherRootScreen(
                         showNetworkWidgetOnSecondScreen = settings.showNetworkWidgetOnSecondScreen,
                         homeScreenApps = settings.homeScreenApps,
                         customIcons = customDockIcons,
-                        iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction
+                        iconCornerRadiusFraction = settings.iconShape.cornerRadiusFraction,
+                        widgetPlacements = settings.widgetPlacements,
+                        onUpdateWidgetPlacement = settings::updateWidgetPlacement,
+                        widgetCardStyle = settings.widgetCardStyle
                     )
                 }
 
@@ -419,7 +428,10 @@ fun LauncherRootScreen(
             },
             onOpenSettings = openSettings,
             onOpenMusic = openMusic,
-            onOpenNavigation = openNavigation
+            onOpenNavigation = openNavigation,
+            hiddenTiles = settings.hiddenQuickPanelTiles,
+            tileOrder = settings.quickPanelTileOrder,
+            onReorderTiles = settings::updateQuickPanelTileOrder
         )
 
         // 7. Настройки (как в iPad)

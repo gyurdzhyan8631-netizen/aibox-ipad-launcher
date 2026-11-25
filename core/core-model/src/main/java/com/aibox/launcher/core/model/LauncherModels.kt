@@ -14,6 +14,30 @@ enum class IconShape(val title: String, val cornerRadiusFraction: Float) {
     SQUARE("Квадратные", 0f)
 }
 
+enum class WidgetCardStyle(val title: String) {
+    GLASS("Стекло"),
+    DARK("Тёмная"),
+    ACCENT("Акцентная")
+}
+
+data class WidgetPlacement(
+    val xFraction: Float,
+    val yFraction: Float,
+    val widthFraction: Float,
+    val heightFraction: Float
+) {
+    fun constrained(minWidth: Float, minHeight: Float): WidgetPlacement {
+        val width = widthFraction.coerceIn(minWidth.coerceAtMost(1f), 1f)
+        val height = heightFraction.coerceIn(minHeight.coerceAtMost(1f), 1f)
+        return copy(
+            xFraction = xFraction.coerceIn(0f, 1f - width),
+            yFraction = yFraction.coerceIn(0f, 1f - height),
+            widthFraction = width,
+            heightFraction = height
+        )
+    }
+}
+
 enum class AnimationIntensity(val title: String, val scaleFactor: Float) {
     DISABLED("Отключено", 0f),
     MINIMAL("Минимальная", 0.5f),

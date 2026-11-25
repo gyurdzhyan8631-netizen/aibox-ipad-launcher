@@ -53,7 +53,8 @@ fun DynamicWeatherWallpaper(
     weather: WeatherCondition,
     modifier: Modifier = Modifier,
     theme: WallpaperTheme = WallpaperTheme.AUTO,
-    currentTime: LocalTime = LocalTime.now()
+    currentTime: LocalTime = LocalTime.now(),
+    showCelestialBodies: Boolean = true
 ) {
     val fixed = wallpaperThemeColors(theme)
 
@@ -131,18 +132,20 @@ fun DynamicWeatherWallpaper(
             val bodyX = width * pathFraction
             val bodyY = height * (0.67f - 0.42f * sin(PI.toFloat() * pathFraction))
             val bodyColor = if (isDay) Color(0xFFFFD166) else Color(0xFFE9F1FF)
-            val bodyRadius = minOf(width, height) * 0.035f
+            val bodyRadius = minOf(width, height) * 0.022f
 
-            drawCircle(
-                color = bodyColor.copy(alpha = 0.16f),
-                radius = bodyRadius * 2.2f,
-                center = Offset(bodyX, bodyY)
-            )
-            drawCircle(
-                color = bodyColor.copy(alpha = 0.9f),
-                radius = bodyRadius,
-                center = Offset(bodyX, bodyY)
-            )
+            if (showCelestialBodies) {
+                drawCircle(
+                    color = bodyColor.copy(alpha = 0.08f),
+                    radius = bodyRadius * 1.65f,
+                    center = Offset(bodyX, bodyY)
+                )
+                drawCircle(
+                    color = bodyColor.copy(alpha = 0.88f),
+                    radius = bodyRadius,
+                    center = Offset(bodyX, bodyY)
+                )
+            }
 
             when (weather) {
                 WeatherCondition.RAIN,

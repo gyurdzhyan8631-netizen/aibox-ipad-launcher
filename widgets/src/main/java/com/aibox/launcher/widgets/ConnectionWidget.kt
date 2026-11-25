@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import kotlinx.coroutines.delay
 
@@ -43,7 +44,10 @@ private fun readConnection(context: Context): ConnectionInfo {
 
 /** Виджет «Сеть»: тип подключения, интернет и VPN. */
 @Composable
-fun ConnectionWidget(modifier: Modifier = Modifier) {
+fun ConnectionWidget(
+    modifier: Modifier = Modifier,
+    cardStyle: WidgetCardStyle = WidgetCardStyle.GLASS
+) {
     val context = LocalContext.current
     val tokens = LocalLauncherTokens.current
     var info by remember { mutableStateOf(readConnection(context)) }
@@ -55,7 +59,7 @@ fun ConnectionWidget(modifier: Modifier = Modifier) {
         }
     }
 
-    GlassCard(modifier = modifier) {
+    GlassCard(modifier = modifier, style = cardStyle) {
         Column {
             Text(
                 text = "Сеть",

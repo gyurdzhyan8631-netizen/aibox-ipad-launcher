@@ -13,6 +13,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -47,10 +48,12 @@ import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Wifi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +64,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -70,20 +74,30 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
+import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
+import com.aibox.launcher.settings.QuickPanelTile
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.roundToInt
 
-private val PanelBlue = Color(0xFF0A84FF)
-
+@Composable
 private fun Modifier.glass(radius: Dp = 28.dp): Modifier {
+    val tokens = LocalLauncherTokens.current
     val shape = RoundedCornerShape(radius)
     return this
         .clip(shape)
-        .background(Color(0x33FFFFFF))
-        .border(1.dp, Color(0x40FFFFFF), shape)
+        .background(tokens.panelBackground)
+        .border(1.dp, tokens.panelBorder, shape)
 }
+
+private data class QuickAction(
+    val id: String,
+    val icon: ImageVector,
+    val label: String,
+    val onClick: () -> Unit
+)
 
 private fun sendMediaKey(audio: AudioManager?, keyCode: Int) {
     if (audio == null) return
@@ -104,6 +118,9 @@ fun QuickPanelOverlay(
     onOpenSettings: (String) -> Unit,
     onOpenMusic: () -> Unit,
     onOpenNavigation: () -> Unit,
+    hiddenTiles: Set<String> = emptySet(),
+    tileOrder: List<String> = emptyList(),
+    onReorderTiles: (List<String>) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -128,6 +145,31 @@ fun QuickPanelOverlay(
         var volume by remember { mutableIntStateOf(state.volumePercent) }
         var musicActive by remember { mutableStateOf(audio?.isMusicActive == true) }
         var now by remember { mutableStateOf(LocalDateTime.now()) }
+        val quickActions = listOf(
+            QuickAction(QuickPanelTile.AUTO.name, Icons.Rounded.Palette, "Авто") {
+                onOpenSettings("personalization")
+            },
+            QuickAction(QuickPanelTile.WALLPAPER.name, Icons.Rounded.DesktopWindows, "Обои") {
+                onOpenSettings("personalization")
+            },
+            QuickAction(
+                QuickPanelTile.NAVIGATION.name,
+                Icons.Rounded.Navigation,
+                "Навигация",
+                onOpenNavigation
+            ),
+            QuickAction(QuickPanelTile.WEATHER.name, Icons.Rounded.Cloud, weatherText) {
+                onOpenSettings("home")
+            },
+            QuickAction(QuickPanelTile.APPS.name, Icons.Rounded.Apps, "Приложения", onOpenApps),
+            QuickAction(QuickPanelTile.SETTINGS.name, Icons.Rounded.Settings, "Настройки") {
+                onOpenSettings("home")
+            }
+        )
+        val actionsById = quickActions.associateBy { it.id }
+        val orderedActions = tileOrder.mapNotNull(actionsById::get) +
+            quickActions.filterNot { it.id in tileOrder }
+        val visibleActions = orderedActions.filterNot { it.id in hiddenTiles }
 
         LaunchedEffect(Unit) {
             while (true) {
@@ -141,7 +183,7 @@ fun QuickPanelOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xCC070B16))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.94f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -152,7 +194,7 @@ fun QuickPanelOverlay(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 56.dp, vertical = 14.dp)
+                    .padding(horizontal = 36.dp, vertical = 10.dp)
             ) {
                 // --- шапка: время, дата, «Готово» ---
                 Row(
@@ -162,7 +204,7 @@ fun QuickPanelOverlay(
                     Text(
                         text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
                         color = Color.White,
-                        fontSize = 26.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
@@ -180,7 +222,7 @@ fun QuickPanelOverlay(
                             .clip(RoundedCornerShape(18.dp))
                             .background(Color(0x99FFFFFF).copy(alpha = 0.35f))
                             .clickable(onClick = onDismiss)
-                            .padding(horizontal = 22.dp, vertical = 8.dp)
+                            .padding(horizontal = 18.dp, vertical = 7.dp)
                     ) {
                         Text("Готово", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }
@@ -188,7 +230,7 @@ fun QuickPanelOverlay(
 
                 // --- главный ряд ---
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
@@ -203,7 +245,7 @@ fun QuickPanelOverlay(
                         onBluetooth = { controller.openBluetoothSettings() },
                         onMobile = { controller.openInternetSettings() },
                         modifier = Modifier
-                            .weight(1.25f)
+                            .weight(1.1f)
                             .fillMaxHeight()
                     )
                     MusicCard(
@@ -213,7 +255,7 @@ fun QuickPanelOverlay(
                         onPlayPause = { sendMediaKey(audio, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
                         onNext = { sendMediaKey(audio, KeyEvent.KEYCODE_MEDIA_NEXT) },
                         modifier = Modifier
-                            .weight(1.5f)
+                            .weight(1.2f)
                             .fillMaxHeight()
                     )
                     LevelSlider(
@@ -242,17 +284,32 @@ fun QuickPanelOverlay(
 
                 // --- нижний ряд быстрых кнопок ---
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(84.dp)
+                        .height(72.dp)
                 ) {
-                    QuickTile(Icons.Rounded.Palette, "Авто", { onOpenSettings("personalization") }, Modifier.weight(1f))
-                    QuickTile(Icons.Rounded.DesktopWindows, "Обои", { onOpenSettings("personalization") }, Modifier.weight(1f))
-                    QuickTile(Icons.Rounded.Navigation, "Навигация", onOpenNavigation, Modifier.weight(1f))
-                    QuickTile(Icons.Rounded.Cloud, weatherText, { onOpenSettings("home") }, Modifier.weight(1f))
-                    QuickTile(Icons.Rounded.Apps, "Приложения", onOpenApps, Modifier.weight(1f))
-                    QuickTile(Icons.Rounded.Settings, "Настройки", { onOpenSettings("home") }, Modifier.weight(1f))
+                    if (visibleActions.isEmpty()) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = "Плитки скрыты — включите нужные в персонализации",
+                                color = Color.White.copy(alpha = 0.75f),
+                                fontSize = 13.sp
+                            )
+                        }
+                    } else {
+                        visibleActions.forEach { action ->
+                            ReorderableQuickTile(
+                                action = action,
+                                actionIds = visibleActions.map { it.id },
+                                onReorder = onReorderTiles,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -320,7 +377,9 @@ private fun RoundToggle(
             modifier = Modifier
                 .size(diameter)
                 .clip(CircleShape)
-                .background(if (active) PanelBlue else Color(0x59FFFFFF))
+                .background(
+                    if (active) MaterialTheme.colorScheme.primary else Color(0x59FFFFFF)
+                )
                 .clickable(onClick = onClick)
         ) {
             content()
@@ -439,6 +498,47 @@ private fun LevelSlider(
 }
 
 @Composable
+private fun ReorderableQuickTile(
+    action: QuickAction,
+    actionIds: List<String>,
+    onReorder: (List<String>) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var dragAmount by remember(action.id) { mutableFloatStateOf(0f) }
+    var tileWidth by remember(action.id) { mutableIntStateOf(1) }
+
+    QuickTile(
+        icon = action.icon,
+        label = action.label,
+        onClick = action.onClick,
+        modifier = modifier
+            .onSizeChanged { tileWidth = it.width.coerceAtLeast(1) }
+            .pointerInput(action.id, actionIds) {
+                detectDragGesturesAfterLongPress(
+                    onDragEnd = {
+                        val from = actionIds.indexOf(action.id)
+                        val to = (from + (dragAmount / tileWidth).roundToInt())
+                            .coerceIn(0, actionIds.lastIndex)
+                        if (from >= 0 && to != from) {
+                            val reordered = actionIds.toMutableList()
+                            val moved = reordered.removeAt(from)
+                            reordered.add(to, moved)
+                            onReorder(reordered)
+                        }
+                        dragAmount = 0f
+                    },
+                    onDragCancel = { dragAmount = 0f },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        dragAmount += amount.x
+                    }
+                )
+            }
+            .graphicsLayer { translationX = dragAmount }
+    )
+}
+
+@Composable
 private fun QuickTile(
     icon: ImageVector,
     label: String,
@@ -454,11 +554,11 @@ private fun QuickTile(
             .clickable(onClick = onClick)
             .padding(6.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
         Text(
             text = label,
             color = Color.White,
-            fontSize = 12.sp,
+            fontSize = 10.sp,
             maxLines = 1,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 6.dp)

@@ -76,6 +76,7 @@ import coil.compose.AsyncImage
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.IconShape
 import com.aibox.launcher.core.model.VisualStyle
+import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
@@ -168,7 +169,19 @@ internal fun HomeSection(
         }
     }
 
+    SectionTitle("Небо на обоях")
+    SettingsGroup {
+        SwitchRow(
+            icon = Icons.Rounded.WbSunny,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Показывать солнце и луну",
+            checked = settings.showCelestialBodies,
+            onCheckedChange = settings::setShowCelestialBodies
+        )
+    }
+
     SectionTitle("Виджеты рабочего стола 1")
+    HintText("Удерживайте виджет, чтобы переместить его. Потяните за значок в углу, чтобы изменить размер.")
     SettingsGroup {
         SwitchRow(
             icon = Icons.Rounded.DateRange,
@@ -572,6 +585,29 @@ internal fun PersonalizationSection(
         )
         RowDivider()
         SettingsRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = Color(0xFF0A84FF),
+            title = "Стиль виджетов",
+            value = settings.widgetCardStyle.title,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Стиль виджетов",
+                        options = WidgetCardStyle.entries.map {
+                            PickerOption(it.name, it.title)
+                        },
+                        selectedKey = settings.widgetCardStyle.name,
+                        onSelect = { selected ->
+                            settings.updateWidgetCardStyle(
+                                WidgetCardStyle.entries.first { it.name == selected }
+                            )
+                        }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
             icon = Icons.Rounded.Language,
             iconColor = Color(0xFF30D158),
             title = "Шрифт",
@@ -707,6 +743,29 @@ internal fun PersonalizationSection(
             value = "Изменить",
             onClick = { onOpenSection(SettingsSection.HOME) }
         )
+    }
+
+    SectionTitle("Кнопки шторки")
+    HintText("Скройте ненужные плитки. Порядок можно изменить долгим нажатием прямо в шторке.")
+    SettingsGroup {
+        QuickPanelTile.entries.forEachIndexed { index, tile ->
+            if (index > 0) RowDivider()
+            val icon = when (tile) {
+                QuickPanelTile.AUTO -> Icons.Rounded.Palette
+                QuickPanelTile.WALLPAPER -> Icons.Rounded.WbSunny
+                QuickPanelTile.NAVIGATION -> Icons.Rounded.Navigation
+                QuickPanelTile.WEATHER -> Icons.Rounded.WbSunny
+                QuickPanelTile.APPS -> Icons.Rounded.Apps
+                QuickPanelTile.SETTINGS -> Icons.Rounded.Settings
+            }
+            SwitchRow(
+                icon = icon,
+                iconColor = Color(0xFF0A84FF),
+                title = tile.title,
+                checked = tile.name !in settings.hiddenQuickPanelTiles,
+                onCheckedChange = { settings.setQuickPanelTileVisible(tile, it) }
+            )
+        }
     }
 }
 

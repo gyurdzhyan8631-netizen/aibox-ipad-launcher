@@ -12,20 +12,27 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aibox.launcher.core.model.WidgetCardStyle
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 
 /** Стеклянная карточка — основа всех виджетов. */
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
+    style: WidgetCardStyle = WidgetCardStyle.GLASS,
     content: @Composable () -> Unit
 ) {
     val tokens = LocalLauncherTokens.current
     val shape = RoundedCornerShape(tokens.cornerRadius)
+    val background = when (style) {
+        WidgetCardStyle.GLASS -> tokens.cardBackground
+        WidgetCardStyle.DARK -> androidx.compose.ui.graphics.Color(0xE61C1C1E)
+        WidgetCardStyle.ACCENT -> tokens.accent.copy(alpha = 0.24f)
+    }
     Box(
         modifier = modifier
             .clip(shape)
-            .background(tokens.cardBackground)
+            .background(background)
             .border(1.dp, tokens.panelBorder, shape)
             .padding(14.dp)
     ) {

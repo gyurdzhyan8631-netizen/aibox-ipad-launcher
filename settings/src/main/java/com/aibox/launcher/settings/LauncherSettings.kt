@@ -1,6 +1,7 @@
 package com.aibox.launcher.settings
 
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -8,7 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import com.aibox.launcher.core.model.IconShape
 import com.aibox.launcher.core.model.VisualStyle
+import com.aibox.launcher.core.model.WidgetCardStyle
+import com.aibox.launcher.core.model.WidgetPlacement
 import com.aibox.launcher.core.model.WallpaperTheme
+import org.json.JSONException
+import org.json.JSONObject
 
 enum class LauncherFont(val title: String, val family: FontFamily) {
     SANS_SERIF("Без засечек", FontFamily.SansSerif),
@@ -19,6 +24,15 @@ enum class LauncherFont(val title: String, val family: FontFamily) {
     companion object {
         fun fromId(id: String?): LauncherFont = entries.firstOrNull { it.name == id } ?: SANS_SERIF
     }
+}
+
+enum class QuickPanelTile(val title: String) {
+    AUTO("Авто"),
+    WALLPAPER("Обои"),
+    NAVIGATION("Навигация"),
+    WEATHER("Погода"),
+    APPS("Приложения"),
+    SETTINGS("Настройки")
 }
 
 enum class ClockStyle(val id: String, val title: String) {
@@ -60,6 +74,27 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     )
         private set
     var font by mutableStateOf(LauncherFont.fromId(prefs.getString(K_FONT, null)))
+        private set
+    var widgetCardStyle by mutableStateOf(
+        prefs.getString(K_WIDGET_STYLE, null)?.let { stored ->
+            WidgetCardStyle.entries.firstOrNull { it.name == stored }
+        } ?: WidgetCardStyle.GLASS
+    )
+        private set
+    var widgetPlacements by mutableStateOf(readWidgetPlacements())
+        private set
+    var showCelestialBodies by mutableStateOf(prefs.getBoolean(K_CELESTIAL_BODIES, false))
+        private set
+    var hiddenQuickPanelTiles by mutableStateOf(
+        prefs.getStringSet(K_HIDDEN_QUICK_PANEL_TILES, emptySet())?.toSet() ?: emptySet()
+    )
+        private set
+    var quickPanelTileOrder by mutableStateOf(
+        prefs.getString(K_QUICK_PANEL_ORDER, null)
+            ?.split('\n')
+            ?.filter(String::isNotBlank)
+            .orEmpty()
+    )
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
         private set
@@ -142,6 +177,49 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_FONT, value.name).apply()
     }
 
+    fun updateWidgetCardStyle(value: WidgetCardStyle) {
+        widgetCardStyle = value
+        prefs.edit().putString(K_WIDGET_STYLE, value.name).apply()
+    }
+
+    fun updateWidgetPlacement(key: String, placement: WidgetPlacement) {
+        val updated = widgetPlacements + (key to placement)
+        widgetPlacements = updated
+        val json = JSONObject()
+        updated.forEach { (id, value) ->
+            json.put(
+                id,
+                JSONObject()
+                    .put("x", value.xFraction.toDouble())
+                    .put("y", value.yFraction.toDouble())
+                    .put("w", value.widthFraction.toDouble())
+                    .put("h", value.heightFraction.toDouble())
+            )
+        }
+        prefs.edit().putString(K_WIDGET_PLACEMENTS, json.toString()).apply()
+    }
+
+    fun setShowCelestialBodies(show: Boolean) {
+        showCelestialBodies = show
+        prefs.edit().putBoolean(K_CELESTIAL_BODIES, show).apply()
+    }
+
+    fun setQuickPanelTileVisible(tile: QuickPanelTile, visible: Boolean) {
+        hiddenQuickPanelTiles = if (visible) {
+            hiddenQuickPanelTiles - tile.name
+        } else {
+            hiddenQuickPanelTiles + tile.name
+        }
+        prefs.edit().putStringSet(K_HIDDEN_QUICK_PANEL_TILES, hiddenQuickPanelTiles).apply()
+    }
+
+    fun updateQuickPanelTileOrder(tileNames: List<String>) {
+        val ordered = tileNames.distinct() +
+            quickPanelTileOrder.filterNot(tileNames.toSet()::contains)
+        quickPanelTileOrder = ordered
+        prefs.edit().putString(K_QUICK_PANEL_ORDER, ordered.joinToString("\n")).apply()
+    }
+
     fun updateClockStyle(value: ClockStyle) {
         clockStyle = value
         prefs.edit().putString(K_CLOCK_STYLE, value.id).apply()
@@ -200,7 +278,34 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_DOCK_ORDER, ordered.joinToString("\n")).apply()
     }
 
+    private fun readWidgetPlacements(): Map<String, WidgetPlacement> {
+        val raw = prefs.getString(K_WIDGET_PLACEMENTS, null) ?: return emptyMap()
+        return try {
+            val json = JSONObject(raw)
+            buildMap {
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val value = json.getJSONObject(key)
+                    put(
+                        key,
+                        WidgetPlacement(
+                            xFraction = value.getDouble("x").toFloat(),
+                            yFraction = value.getDouble("y").toFloat(),
+                            widthFraction = value.getDouble("w").toFloat(),
+                            heightFraction = value.getDouble("h").toFloat()
+                        ).constrained(0.12f, 0.12f)
+                    )
+                }
+            }
+        } catch (exception: JSONException) {
+            Log.e(TAG, "Unable to read saved widget placements", exception)
+            emptyMap()
+        }
+    }
+
     private companion object {
+        const val TAG = "LauncherSettings"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_INTERFACE = "interface_scale"
@@ -210,6 +315,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_VISUAL_STYLE = "visual_style"
         const val K_ICON_SHAPE = "icon_shape"
         const val K_FONT = "launcher_font"
+        const val K_WIDGET_STYLE = "widget_card_style"
+        const val K_WIDGET_PLACEMENTS = "widget_placements"
+        const val K_CELESTIAL_BODIES = "show_celestial_bodies"
+        const val K_HIDDEN_QUICK_PANEL_TILES = "quick_panel_hidden_tiles"
+        const val K_QUICK_PANEL_ORDER = "quick_panel_tile_order"
         const val K_CLOCK_STYLE = "clock_style"
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
