@@ -1,6 +1,10 @@
 package com.aibox.launcher.settings
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -17,6 +21,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -179,7 +185,9 @@ fun SettingsScreen(
                             .verticalScroll(rememberScrollState())
                             .padding(bottom = 12.dp)
                     ) {
-                        when (section) {
+                        Crossfade(targetState = section, label = "settingsContent") { current ->
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        when (current) {
                             SettingsSection.HOME -> HomeSection(
                                 settings = settings,
                                 weatherStatus = weatherStatus,
@@ -203,6 +211,8 @@ fun SettingsScreen(
                             SettingsSection.UPDATE -> UpdateSection()
                             SettingsSection.ABOUT -> AboutSection()
                         }
+                        }
+                        }
                     }
                 }
             }
@@ -222,32 +232,52 @@ private fun Sidebar(
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(26.dp)
-    Column(
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+    val itemHeight = 48.dp
+    val gap = 2.dp
+    val index = SettingsSection.entries.indexOf(selected)
+    // Синяя капсула плавно переезжает к выбранному разделу и прокручивается вместе со списком.
+    val pillY by animateDpAsState(
+        targetValue = (itemHeight + gap) * index,
+        animationSpec = spring(dampingRatio = 0.72f, stiffness = Spring.StiffnessMediumLow),
+        label = "sidebarPill"
+    )
+
+    Box(
         modifier = modifier
             .glassSurface(shape)
             .verticalScroll(rememberScrollState())
             .padding(10.dp)
     ) {
-        SettingsSection.entries.forEach { item ->
-            val isSelected = item == selected
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (isSelected) SettingsColors.accent else Color.Transparent)
-                    .clickable { onSelect(item) }
-                    .padding(horizontal = 10.dp, vertical = 9.dp)
-            ) {
-                IconBadge(item.icon, item.color)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    text = item.title,
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                )
+        Box(
+            modifier = Modifier
+                .offset(y = pillY)
+                .fillMaxWidth()
+                .height(itemHeight)
+                .clip(RoundedCornerShape(16.dp))
+                .background(SettingsColors.accent)
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(gap)) {
+            SettingsSection.entries.forEach { item ->
+                val isSelected = item == selected
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onSelect(item) }
+                        .padding(horizontal = 10.dp)
+                ) {
+                    IconBadge(item.icon, item.color)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = item.title,
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        maxLines = 1,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                    )
+                }
             }
         }
     }

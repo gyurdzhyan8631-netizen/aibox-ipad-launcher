@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
+import com.aibox.launcher.core.model.WidgetSize
 import java.io.File
 
 enum class ClockStyle(val id: String, val title: String) {
@@ -66,6 +67,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     /** Порядок иконок в доке (пакеты); новые приложения встают в конец. */
     var dockOrder by mutableStateOf(parseTokens(prefs.getString(K_DOCK_ORDER, "")))
+        private set
+
+    /** Размеры виджетов: ключ «страница:запись», например «1:date». */
+    var widgetSizes by mutableStateOf(parseSizes(prefs.getString(K_SIZES, "")))
         private set
 
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
@@ -150,6 +155,31 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         storeWidgets(page, widgetsOf(page).filter { it != token })
     }
 
+    fun sizesFor(page: Int): Map<String, WidgetSize> =
+        widgetSizes
+            .filterKeys { it.startsWith("$page:") }
+            .mapKeys { it.key.substringAfter(':') }
+
+    fun setWidgetSize(page: Int, token: String, size: WidgetSize) {
+        widgetSizes = widgetSizes + ("$page:$token" to size)
+        prefs.edit()
+            .putString(
+                K_SIZES,
+                widgetSizes.entries.joinToString(";") { "${it.key}=${it.value.weight},${it.value.height}" }
+            )
+            .apply()
+    }
+
+    /** Сдвигает виджет на [delta] позиций (−1 — влево, +1 — вправо). */
+    fun moveWidget(page: Int, token: String, delta: Int) {
+        val list = widgetsOf(page).toMutableList()
+        val from = list.indexOf(token)
+        val to = from + delta
+        if (from < 0 || to < 0 || to >= list.size) return
+        list.add(to, list.removeAt(from))
+        storeWidgets(page, list)
+    }
+
     fun updateUiScale(value: Float) {
         uiScale = value.coerceIn(0.6f, 1.3f)
         prefs.edit().putFloat(K_UI, uiScale).apply()
@@ -207,11 +237,22 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putStringSet(K_HIDDEN, hiddenInDock.toSet()).apply()
     }
 
+    private fun parseSizes(raw: String?): Map<String, WidgetSize> =
+        (raw ?: "").split(';').mapNotNull { entry ->
+            val parts = entry.split('=')
+            if (parts.size != 2) return@mapNotNull null
+            val values = parts[1].split(',')
+            val weight = values.getOrNull(0)?.toFloatOrNull()
+            val height = values.getOrNull(1)?.toFloatOrNull()
+            if (weight == null || height == null) null else parts[0] to WidgetSize(weight, height)
+        }.toMap()
+
     private fun parseTokens(csv: String?): List<String> =
         (csv ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     private companion object {
         const val DEFAULT_UI_SCALE = 0.85f
+        const val K_SIZES = "widget_sizes"
         const val K_SKY_PRECIP = "sky_precip"
         const val K_DOCK_ORDER = "dock_order"
         const val K_UI = "ui_scale"

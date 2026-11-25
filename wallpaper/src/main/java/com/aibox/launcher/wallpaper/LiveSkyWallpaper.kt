@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -13,8 +14,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WeatherCondition
@@ -26,16 +30,16 @@ import kotlin.math.sin
 
 private fun frac(x: Float): Float = x - floor(x)
 
-/** Цвета неба (верх, низ) по времени суток. Для фиксированной темы берутся цвета темы. */
+/** Цвета неба (верх, горизонт) по времени суток; для фиксированной темы берутся цвета темы. */
 private fun skyColors(minutes: Int, sunrise: Int, sunset: Int, theme: WallpaperTheme): Pair<Color, Color> {
-    wallpaperThemeColors(theme)?.let { return it }
+    wallpaperThemeColors(theme)?.let { (top, bottom) -> return top to lerp(bottom, Color.White, 0.18f) }
 
-    val nightTop = Color(0xFF050814)
-    val nightBottom = Color(0xFF111A30)
-    val twilightTop = Color(0xFF3A3F7A)
-    val twilightBottom = Color(0xFFFF9F68)
-    val dayTop = Color(0xFF1E62B5)
-    val dayBottom = Color(0xFF78B8FF)
+    val nightTop = Color(0xFF070B1C)
+    val nightHorizon = Color(0xFF1A2745)
+    val twilightTop = Color(0xFF3C4A86)
+    val twilightHorizon = Color(0xFFF2A27A)
+    val dayTop = Color(0xFF4A78B6)
+    val dayHorizon = Color(0xFFB7CFE8)
 
     val m = minutes.toFloat()
     val w = 45f
@@ -49,17 +53,17 @@ private fun skyColors(minutes: Int, sunrise: Int, sunset: Int, theme: WallpaperT
     }
     return if (x < 0.5f) {
         val f = x * 2f
-        lerp(nightTop, twilightTop, f) to lerp(nightBottom, twilightBottom, f)
+        lerp(nightTop, twilightTop, f) to lerp(nightHorizon, twilightHorizon, f)
     } else {
         val f = (x - 0.5f) * 2f
-        lerp(twilightTop, dayTop, f) to lerp(twilightBottom, dayBottom, f)
+        lerp(twilightTop, dayTop, f) to lerp(twilightHorizon, dayHorizon, f)
     }
 }
 
 private fun cloudiness(weather: WeatherCondition): Float = when (weather) {
-    WeatherCondition.CLEAR -> 0f
-    WeatherCondition.WIND -> 0.2f
-    WeatherCondition.CLOUDY -> 0.5f
+    WeatherCondition.CLEAR -> 0.12f
+    WeatherCondition.WIND -> 0.25f
+    WeatherCondition.CLOUDY -> 0.55f
     WeatherCondition.FOG -> 0.8f
     WeatherCondition.OVERCAST -> 0.9f
     WeatherCondition.RAIN -> 0.85f
@@ -70,21 +74,50 @@ private fun cloudiness(weather: WeatherCondition): Float = when (weather) {
 
 private fun weatherTint(weather: WeatherCondition): Pair<Color, Float> = when (weather) {
     WeatherCondition.CLEAR -> Color.Black to 0f
-    WeatherCondition.CLOUDY -> Color(0xFF8E9AAF) to 0.15f
-    WeatherCondition.OVERCAST -> Color(0xFF6B7280) to 0.30f
-    WeatherCondition.RAIN -> Color(0xFF475569) to 0.40f
-    WeatherCondition.HEAVY_RAIN -> Color(0xFF334155) to 0.50f
-    WeatherCondition.SNOW -> Color(0xFFCBD5E1) to 0.25f
+    WeatherCondition.CLOUDY -> Color(0xFF8E9AAF) to 0.12f
+    WeatherCondition.OVERCAST -> Color(0xFF6B7280) to 0.28f
+    WeatherCondition.RAIN -> Color(0xFF475569) to 0.38f
+    WeatherCondition.HEAVY_RAIN -> Color(0xFF334155) to 0.48f
+    WeatherCondition.SNOW -> Color(0xFFCBD5E1) to 0.22f
     WeatherCondition.THUNDERSTORM -> Color(0xFF1E1B2E) to 0.55f
-    WeatherCondition.FOG -> Color(0xFF94A3B8) to 0.35f
-    WeatherCondition.WIND -> Color(0xFF7C8DA6) to 0.15f
+    WeatherCondition.FOG -> Color(0xFF94A3B8) to 0.32f
+    WeatherCondition.WIND -> Color(0xFF7C8DA6) to 0.12f
+}
+
+/** Три слоя гор: дальний, средний, ближний. Строятся один раз для размера экрана. */
+private fun buildMountains(w: Float, h: Float): List<Path> {
+    if (w <= 0f || h <= 0f) return emptyList()
+    val layers = listOf(
+        Triple(0.74f, 0.20f, 7),   // базовая линия, высота пиков, число вершин
+        Triple(0.82f, 0.17f, 9),
+        Triple(0.90f, 0.12f, 6)
+    )
+    return layers.mapIndexed { layerIndex, (baseline, peak, count) ->
+        Path().apply {
+            moveTo(0f, h)
+            lineTo(0f, h * baseline)
+            val step = w / count
+            for (i in 0..count) {
+                val x = i * step
+                // чередуем вершины и впадины; «шум» одинаков при каждой отрисовке
+                val noise = 0.45f + 0.55f * frac(sin((i + 1) * 12.9898f + layerIndex * 78.233f) * 43758.547f)
+                val y = h * baseline - h * peak * noise
+                lineTo(x - step * 0.5f, h * baseline + h * 0.015f)
+                lineTo(x, y)
+            }
+            lineTo(w, h * baseline)
+            lineTo(w, h)
+            close()
+        }
+    }
 }
 
 /**
- * Живое небо: солнце и луна идут по дуге в реальном времени суток (по восходу и закату города),
- * облака плывут, а при дожде или снеге по экрану идут капли и снежинки.
- * Для экономии ресурсов: без осадков и облаков ничего не перерисовывается каждый кадр,
- * облака двигаются раз в четверть секунды, осадки — примерно 30 раз в секунду.
+ * Живое небо в мягком стиле: небо с дымкой у горизонта, матовый диск солнца или луны,
+ * размытые облака и три слоя гор. Солнце и луна идут по дуге в реальном времени суток
+ * (по восходу и закату города), при дожде и снеге идут капли и снежинки.
+ * Без облаков и осадков ничего не перерисовывается каждый кадр: облака двигаются раз в четверть секунды,
+ * осадки — примерно 30 раз в секунду.
  */
 @Composable
 fun LiveSkyWallpaper(
@@ -102,34 +135,35 @@ fun LiveSkyWallpaper(
     val snow = weather == WeatherCondition.SNOW
     val precipActive = precipitation && (rain || snow)
     val clouds = cloudiness(weather)
-    val tickMs = when {
-        precipActive -> 33L
-        clouds > 0.1f -> 250L
-        else -> 0L
-    }
+    val tickMs = if (precipActive) 33L else 250L
 
     var seconds by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(tickMs) {
-        if (tickMs > 0L) {
-            while (true) {
-                val nanos = withFrameNanos { it }
-                seconds = (nanos % 3_600_000_000_000L) / 1_000_000_000f
-                delay(tickMs)
-            }
+        while (true) {
+            val nanos = withFrameNanos { it }
+            seconds = (nanos % 3_600_000_000_000L) / 1_000_000_000f
+            delay(tickMs)
         }
     }
 
     val rise = if (sunsetMin > sunriseMin) sunriseMin else 390
     val set = if (sunsetMin > sunriseMin) sunsetMin else 1110
-    val (baseTop, baseBottom) = skyColors(nowMinutes, rise, set, theme)
+    val (baseTop, baseHorizon) = skyColors(nowMinutes, rise, set, theme)
     val (tint, tintAmount) = weatherTint(weather)
     val top = lerp(baseTop, tint, tintAmount)
-    val bottom = lerp(baseBottom, tint, tintAmount)
+    val horizon = lerp(baseHorizon, tint, tintAmount)
 
-    Canvas(modifier = modifier.fillMaxSize()) {
-        drawRect(Brush.verticalGradient(listOf(top, bottom)))
-        drawSkyBodies(nowMinutes, rise, set, clouds, seconds)
-        if (clouds > 0.1f) drawClouds(clouds, nowMinutes, rise, set, seconds)
+    var sizePx by remember { mutableStateOf(IntSize.Zero) }
+    val mountains = remember(sizePx) { buildMountains(sizePx.width.toFloat(), sizePx.height.toFloat()) }
+
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .onSizeChanged { sizePx = it }
+    ) {
+        drawRect(Brush.verticalGradient(listOf(top, horizon), startY = 0f, endY = size.height * 0.85f))
+        drawSkyBodies(nowMinutes, rise, set, clouds, seconds, horizon)
+        drawSoftClouds(clouds, nowMinutes in rise..set, seconds)
         if (precipActive) {
             if (snow) {
                 drawSnow(seconds)
@@ -140,16 +174,29 @@ fun LiveSkyWallpaper(
                 }
             }
         }
-        // лёгкое затемнение низа, чтобы док и подписи читались
-        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0x55000000))))
+        // горы: дальний слой светлее и «в дымке», ближний — самый тёмный
+        mountains.forEachIndexed { index, path ->
+            val depth = (index + 1) / mountains.size.toFloat()
+            val color = lerp(horizon, Color(0xFF1C2A4A), 0.30f + 0.45f * depth)
+            drawPath(path, Brush.verticalGradient(listOf(lerp(color, Color.White, 0.18f), color)))
+        }
+        // затемнение низа, чтобы док и подписи читались
+        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color(0x66000A18))))
     }
 }
 
-private fun DrawScope.drawSkyBodies(minutes: Int, rise: Int, set: Int, clouds: Float, seconds: Float) {
+private fun DrawScope.drawSkyBodies(
+    minutes: Int,
+    rise: Int,
+    set: Int,
+    clouds: Float,
+    seconds: Float,
+    horizonColor: Color
+) {
     val w = size.width
     val h = size.height
-    val horizon = h * 0.82f
-    val arc = h * 0.70f
+    val baseline = h * 0.70f
+    val arc = h * 0.55f
     val radius = min(w, h) * 0.055f
     val m = minutes.toFloat()
     val isDay = m in rise.toFloat()..set.toFloat()
@@ -161,79 +208,87 @@ private fun DrawScope.drawSkyBodies(minutes: Int, rise: Int, set: Int, clouds: F
         else -> 0f
     }
     val nightFactor = (dist / 60f).coerceIn(0f, 1f)
-    if (nightFactor > 0.05f && clouds < 0.8f) {
-        val starAlphaBase = nightFactor * (1f - clouds)
+    if (nightFactor > 0.05f && clouds < 0.85f) {
+        val base = nightFactor * (1f - clouds)
         for (i in 0 until 50) {
             val x = frac(i * 0.618034f) * w
-            val y = frac(i * 0.7548776f + 0.13f) * horizon * 0.85f
+            val y = frac(i * 0.7548776f + 0.13f) * baseline * 0.8f
             val twinkle = 0.6f + 0.4f * sin(seconds * 0.8f + i)
             drawCircle(
-                color = Color.White.copy(alpha = (starAlphaBase * (0.35f + frac(i * 0.31f) * 0.65f) * twinkle).coerceIn(0f, 1f)),
+                color = Color.White.copy(alpha = (base * (0.35f + frac(i * 0.31f) * 0.65f) * twinkle).coerceIn(0f, 1f)),
                 radius = (1f + frac(i * 0.17f) * 1.4f).dp.toPx(),
                 center = Offset(x, y)
             )
         }
     }
 
-    // --- солнце или луна ---
-    val progress: Float
+    // --- диск солнца или луны ---
+    val rawProgress: Float
     if (isDay) {
-        progress = (m - rise) / (set - rise).toFloat()
+        rawProgress = (m - rise) / (set - rise).toFloat()
     } else {
         val nightLength = (1440 - set + rise).toFloat()
-        progress = if (m > set) (m - set) / nightLength else (m + 1440 - set) / nightLength
+        rawProgress = if (m > set) (m - set) / nightLength else (m + 1440 - set) / nightLength
     }
-    val cx = w * (0.10f + 0.80f * progress.coerceIn(0f, 1f))
-    val cy = horizon - sin(PI.toFloat() * progress.coerceIn(0f, 1f)) * arc
-    val visibility = (sin(PI.toFloat() * progress.coerceIn(0f, 1f)) * 1.6f).coerceIn(0f, 1f)
+    val progress = rawProgress.coerceIn(0f, 1f)
+    val cx = w * (0.10f + 0.80f * progress)
+    val cy = baseline - sin(PI.toFloat() * progress) * arc
+    val visibility = (sin(PI.toFloat() * progress) * 1.8f).coerceIn(0f, 1f)
     val center = Offset(cx, cy)
 
     if (isDay) {
-        val strength = visibility * (1f - clouds * 0.8f)
+        // чем больше облаков, тем «матовее» и холоднее диск
+        val color = lerp(Color(0xFFFFF3C9), Color(0xFFAEBDC2), clouds)
+        val strength = visibility * (1f - clouds * 0.25f)
         drawCircle(
             brush = Brush.radialGradient(
-                listOf(Color(0xFFFFD36B).copy(alpha = 0.55f * strength), Color.Transparent),
+                listOf(Color(0xFFFFF1BF).copy(alpha = 0.40f * (1f - clouds) * visibility), Color.Transparent),
                 center = center,
                 radius = radius * 4.5f
             ),
             radius = radius * 4.5f,
             center = center
         )
-        drawCircle(Color(0xFFFFE9A6).copy(alpha = strength), radius, center)
+        drawCircle(color.copy(alpha = strength), radius, center)
     } else {
-        val strength = visibility * (1f - clouds * 0.7f)
+        val strength = visibility * (1f - clouds * 0.5f)
         drawCircle(
             brush = Brush.radialGradient(
-                listOf(Color(0xFFBFD0FF).copy(alpha = 0.35f * strength), Color.Transparent),
+                listOf(Color(0xFFCAD7FF).copy(alpha = 0.28f * strength), Color.Transparent),
                 center = center,
                 radius = radius * 4f
             ),
             radius = radius * 4f,
             center = center
         )
-        drawCircle(Color(0xFFEDEFF7).copy(alpha = strength), radius, center)
-        // мягкие «моря» на диске
-        drawCircle(Color(0xFFB9BED0).copy(alpha = 0.35f * strength), radius * 0.28f, center + Offset(-radius * 0.3f, -radius * 0.1f))
-        drawCircle(Color(0xFFB9BED0).copy(alpha = 0.28f * strength), radius * 0.2f, center + Offset(radius * 0.35f, radius * 0.25f))
+        drawCircle(lerp(Color(0xFFE9EDF7), horizonColor, 0.12f).copy(alpha = strength), radius, center)
     }
 }
 
-private fun DrawScope.drawClouds(clouds: Float, minutes: Int, rise: Int, set: Int, seconds: Float) {
+/** Крупные мягкие облака без чётких границ. */
+private fun DrawScope.drawSoftClouds(clouds: Float, isDay: Boolean, seconds: Float) {
     val w = size.width
     val h = size.height
-    val isDay = minutes in rise..set
-    val color = lerp(if (isDay) Color.White else Color(0xFF9AA6C0), Color(0xFF8E9AAF), clouds * 0.5f)
-    val count = 3 + (clouds * 5f).toInt()
+    val tintColor = if (isDay) Color.White else Color(0xFF9AA6C0)
+    val count = 2 + (clouds * 5f).toInt()
     for (j in 0 until count) {
-        val speed = 0.004f + frac(j * 0.29f) * 0.004f
-        val cx = ((frac(j * 0.37f) * 1.4f + seconds * speed) % 1.4f - 0.2f) * w
-        val cy = h * (0.10f + frac(j * 0.53f) * 0.38f)
-        val size = w * (0.09f + frac(j * 0.71f) * 0.08f)
-        val alpha = 0.10f + clouds * 0.20f
-        drawCircle(color.copy(alpha = alpha), size, Offset(cx, cy))
-        drawCircle(color.copy(alpha = alpha), size * 0.8f, Offset(cx + size * 0.9f, cy + size * 0.1f))
-        drawCircle(color.copy(alpha = alpha), size * 0.7f, Offset(cx - size * 0.85f, cy + size * 0.15f))
-        drawCircle(color.copy(alpha = alpha), size * 0.6f, Offset(cx + size * 0.2f, cy - size * 0.35f))
+        val speed = 0.0025f + frac(j * 0.29f) * 0.003f
+        val cx = ((frac(j * 0.37f + 0.2f) * 1.5f + seconds * speed) % 1.5f - 0.25f) * w
+        val cy = h * (0.12f + frac(j * 0.53f) * 0.42f)
+        val radius = w * (0.10f + frac(j * 0.71f) * 0.10f)
+        val alpha = (0.10f + clouds * 0.20f).coerceAtMost(0.34f)
+        for (k in 0 until 3) {
+            val c = Offset(cx + (k - 1) * radius * 0.8f, cy + (if (k == 1) -radius * 0.15f else 0f))
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(tintColor.copy(alpha = alpha), Color.Transparent),
+                    center = c,
+                    radius = radius
+                ),
+                radius = radius,
+                center = c
+            )
+        }
     }
 }
 

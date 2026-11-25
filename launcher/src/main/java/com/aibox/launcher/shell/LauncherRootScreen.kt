@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.aibox.launcher.appdrawer.AppDrawerOverlay
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.model.DayPeriod
+import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.core.ui.ScaledContent
@@ -200,6 +201,8 @@ private fun LauncherRootContent(settings: LauncherSettings) {
     var showQuickPanel by remember { mutableStateOf(false) }
     var showAppDrawer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var editMode by remember { mutableStateOf(false) }
+    var showAddWidget by remember { mutableStateOf(false) }
     var settingsSection by remember { mutableStateOf("personalization") }
 
     val openSettings: (String) -> Unit = { sectionId ->
@@ -309,8 +312,25 @@ private fun LauncherRootContent(settings: LauncherSettings) {
             state = pagerState,
             modifier = Modifier.fillMaxSize()
         ) { page ->
+            val pageNumber = page + 1
             HomeScreenPage(
                 widgets = if (page == 0) settings.page1Widgets else settings.page2Widgets,
+                sizes = settings.sizesFor(pageNumber),
+                editMode = editMode,
+                onEnterEdit = {
+                    showQuickPanel = false
+                    showAppDrawer = false
+                    editMode = true
+                },
+                onRemove = { token ->
+                    if (token.startsWith("aw:")) {
+                        token.removePrefix("aw:").toIntOrNull()?.let { widgetController.delete(it) }
+                    }
+                    settings.removeWidgetToken(pageNumber, token)
+                },
+                onMove = { token, delta -> settings.moveWidget(pageNumber, token, delta) },
+                onResize = { token, size -> settings.setWidgetSize(pageNumber, token, size) },
+                onAddWidget = { showAddWidget = true },
                 weather = weatherInfo,
                 apps = apps,
                 onLaunchApp = launchApp,
@@ -404,6 +424,8 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                     scale = settings.panelScale,
                     onBack = {
                         when {
+                            showAddWidget -> showAddWidget = false
+                            editMode -> editMode = false
                             showSettings -> showSettings = false
                             showAppDrawer -> showAppDrawer = false
                             showQuickPanel -> showQuickPanel = false
@@ -411,6 +433,8 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                         }
                     },
                     onHome = {
+                        editMode = false
+                        showAddWidget = false
                         showSettings = false
                         showAppDrawer = false
                         showQuickPanel = false
@@ -462,6 +486,26 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                 onOpenNavigation = openNavigation
             )
         }
+
+        // 6.1 Режим правки рабочего стола
+        EditDonePill(
+            visible = editMode,
+            onDone = { editMode = false },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = verticalPad + 6.dp)
+        )
+        val currentPageTokens = if (pagerState.currentPage == 0) settings.page1Widgets else settings.page2Widgets
+        AddWidgetSheet(
+            visible = showAddWidget,
+            available = DesktopWidget.entries.filter { it.id !in currentPageTokens },
+            onAdd = { widget -> settings.setBuiltinWidget(pagerState.currentPage + 1, widget, true) },
+            onOpenAppWidgets = {
+                editMode = false
+                openSettings("home")
+            },
+            onDismiss = { showAddWidget = false }
+        )
 
         // 7. Настройки (как в iPad)
         SettingsScreen(
