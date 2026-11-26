@@ -43,10 +43,10 @@ import kotlin.math.floor
 import kotlin.math.roundToInt
 
 /**
- * Вертикальный док-карусель в стиле капсулы горячих клавиш.
+ * Горизонтальный док-карусель в одном ряду с капсулой горячих клавиш.
  *
  * Все приложения крутятся по замкнутому кругу. Центральная иконка чуть больше и «выезжает»
- * вперёд пружиной, соседние тускнеют. Подписей нет. Сверху — отдельная кнопка «Все приложения».
+ * вперёд пружиной, соседние тускнеют. Подписей нет. Слева — отдельная кнопка «Все приложения».
  */
 @Composable
 fun CarouselDockBar(
@@ -59,12 +59,13 @@ fun CarouselDockBar(
 ) {
     val density = LocalDensity.current
     val safeUiScale = uiScale.coerceAtLeast(0.01f)
+    // Высота дока равна высоте капсулы горячих клавиш.
+    val panelHeight = DockDefaults.panelHeight(scale)
     val iconSize = DockDefaults.iconSize(scale, uiScale)
-    val dockWidth = DockDefaults.dockWidth(scale, uiScale)
-    val shape = RoundedCornerShape(dockWidth * 0.42f)
+    val shape = RoundedCornerShape(panelHeight * 0.38f)
 
     val stepPx = with(density) { (iconSize + (6.dp / safeUiScale)).toPx() }
-    val forwardPx = with(density) { (7.dp / safeUiScale).toPx() }
+    val forwardPx = with(density) { (8.dp / safeUiScale).toPx() }
     val count = apps.size.coerceAtLeast(1)
     val cyclePx = stepPx * count
     val snapSpec = spring<Float>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
@@ -81,9 +82,9 @@ fun CarouselDockBar(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .onSizeChanged { viewportPx = it.height.coerceAtLeast(1) }
+            .onSizeChanged { viewportPx = it.width.coerceAtLeast(1) }
             .clip(shape)
-            .background(Color(0x45080A10))
+            .background(Color(0x40080A10))
             .glassSurface(shape)
             .pointerInput(apps.size) {
                 detectDragGestures(
@@ -106,7 +107,7 @@ fun CarouselDockBar(
                     }
                 ) { change, amount ->
                     change.consume()
-                    scope.launch { scroll.snapTo(scroll.value + amount.y) }
+                    scope.launch { scroll.snapTo(scroll.value + amount.x) }
                 }
             }
     ) {
@@ -114,8 +115,8 @@ fun CarouselDockBar(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp / safeUiScale)
+                .align(Alignment.CenterStart)
+                .padding(start = 10.dp / safeUiScale)
                 .size(iconSize)
                 .clip(CircleShape)
                 .background(Color(0x33FFFFFF))
@@ -130,7 +131,7 @@ fun CarouselDockBar(
         }
 
         apps.forEachIndexed { index, app ->
-            // Несколько копий замыкают круг: соседи появляются заранее сверху и снизу.
+            // Несколько копий замыкают круг: соседи появляются заранее слева и справа.
             (-2..2).forEach { repeat ->
                 val relativePx = index * stepPx + normalized + repeat * cyclePx
                 if (abs(relativePx) <= viewportPx / 2f + stepPx) {
@@ -147,13 +148,13 @@ fun CarouselDockBar(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .offset(y = with(density) { relativePx.toDp() })
+                            .offset(x = with(density) { relativePx.toDp() })
                             .size(iconSize)
                             .graphicsLayer {
                                 scaleX = scaleByDistance
                                 scaleY = scaleByDistance
-                                // Центральная иконка чуть выдвигается из капсулы влево.
-                                translationX = -(1f - distance) * forwardPx
+                                // Центральная иконка чуть выдвигается из капсулы вверх.
+                                translationY = -(1f - distance) * forwardPx
                                 alpha = 1f - 0.5f * distance
                             }
                             .clickable {

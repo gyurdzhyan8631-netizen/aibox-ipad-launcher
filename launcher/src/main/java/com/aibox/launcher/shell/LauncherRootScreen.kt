@@ -255,11 +255,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val verticalPad = if (compact) 10.dp else 18.dp
     val pageTop = with(density) { headerPx.toDp() } + verticalPad + 8.dp
     val pageBottom = with(density) { bottomPx.toDp() } + verticalPad + 24.dp
-    // Док занимает правую сторону от капсулы горячих клавиш до шапки.
-    val dockWidth = DockDefaults.dockWidth(settings.panelScale, uiScale)
-    val dockGap = 10.dp / uiScale.coerceAtLeast(0.01f)
-    val dockTop = pageTop
-    val dockBottom = with(density) { bottomPx.toDp() } + verticalPad + 8.dp
 
     Box(
         modifier = Modifier
@@ -342,29 +337,9 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 widgetScale = settings.widgetScale,
                 uiScale = uiScale,
                 topPadding = pageTop,
-                bottomPadding = pageBottom,
-                endPadding = 28.dp + dockWidth + dockGap
+                bottomPadding = pageBottom
             )
         }
-
-        // 3. Вертикальный док-карусель по правой стороне экрана.
-        CarouselDockBar(
-            apps = carouselApps,
-            onLaunchApp = launchApp,
-            onOpenDrawer = { showAppDrawer = true },
-            scale = settings.panelScale,
-            uiScale = uiScale,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .padding(
-                    start = dockGap,
-                    end = 28.dp,
-                    top = dockTop,
-                    bottom = dockBottom
-                )
-                .width(dockWidth)
-        )
 
         // 4. Шапка и нижние панели лежат поверх рабочих столов
         Column(
@@ -436,14 +411,24 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 }
             }
 
-            // Низ: капсула горячих клавиш под боковым доком
+            // Низ: горизонтальный док рядом с капсулой горячих клавиш, одной высоты.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged { bottomPx = it.height },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(Modifier.weight(1f))
+                CarouselDockBar(
+                    apps = carouselApps,
+                    onLaunchApp = launchApp,
+                    onOpenDrawer = { showAppDrawer = true },
+                    scale = settings.panelScale,
+                    uiScale = uiScale,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(DockDefaults.panelHeight(settings.panelScale))
+                )
+                Spacer(Modifier.width(12.dp))
                 SystemNavigationCapsule(
                     scale = settings.panelScale,
                     uiScale = uiScale,
