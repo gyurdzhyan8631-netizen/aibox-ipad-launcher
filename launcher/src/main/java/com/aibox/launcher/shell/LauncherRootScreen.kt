@@ -62,6 +62,7 @@ import com.aibox.launcher.widgets.AppWidgetController
 import androidx.compose.ui.unit.Density
 import com.aibox.launcher.desktop.HomeScreenPage
 import com.aibox.launcher.dock.CarouselDockBar
+import com.aibox.launcher.dock.DockDefaults
 import com.aibox.launcher.dock.SystemNavigationCapsule
 import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.settings.ClockStyle
@@ -166,11 +167,8 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val apps by produceState(initialValue = emptyList<InstalledApp>()) {
         value = InstalledAppsRepository(context).loadLaunchableApps()
     }
-    val dockApps = remember(apps, settings.hiddenInDock, settings.dockOrder) {
-        val order = settings.dockOrder
-        apps.filter { it.packageName !in settings.hiddenInDock }
-            .sortedBy { app -> order.indexOf(app.packageName).let { if (it < 0) Int.MAX_VALUE else it } }
-    }
+    // В боковом доке участвуют все приложения — порядок по алфавиту и замкнутый круг.
+    val carouselApps = remember(apps) { apps.sortedBy { it.label } }
 
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -254,10 +252,14 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
     var bottomPx by remember { mutableIntStateOf(0) }
-    var capsuleWidthPx by remember { mutableIntStateOf(0) }
     val verticalPad = if (compact) 10.dp else 18.dp
     val pageTop = with(density) { headerPx.toDp() } + verticalPad + 8.dp
     val pageBottom = with(density) { bottomPx.toDp() } + verticalPad + 24.dp
+    // Док занимает правую сторону от капсулы горячих клавиш до шапки.
+    val dockWidth = DockDefaults.dockWidth(settings.panelScale, uiScale)
+    val dockGap = 10.dp / uiScale.coerceAtLeast(0.01f)
+    val dockTop = pageTop
+    val dockBottom = with(density) { bottomPx.toDp() } + verticalPad + 8.dp
 
     Box(
         modifier = Modifier
@@ -340,27 +342,28 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 widgetScale = settings.widgetScale,
                 uiScale = uiScale,
                 topPadding = pageTop,
-                bottomPadding = pageBottom
+                bottomPadding = pageBottom,
+                endPadding = 28.dp + dockWidth + dockGap
             )
         }
 
-        // 3. Док — такой же свободно размещаемый элемент, как виджет.
-        DockLayer(
-            visible = settings.dockVisible,
-            layout = settings.dockLayout,
-            editMode = editMode,
-            onHide = {
-                settings.updateDockVisible(false)
-                editMode = false
-            },
-            onChange = { settings.updateDockLayout(it) },
-            apps = dockApps,
+        // 3. Вертикальный док-карусель по правой стороне экрана.
+        CarouselDockBar(
+            apps = carouselApps,
             onLaunchApp = launchApp,
-            onOpenDrawer = { showAppDrawer = !showAppDrawer },
-            onOpenSettings = { openSettings("sizes") },
-            onReorder = { settings.updateDockOrder(it) },
-            panelScale = settings.panelScale,
-            uiScale = uiScale
+            onOpenDrawer = { showAppDrawer = true },
+            scale = settings.panelScale,
+            uiScale = uiScale,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(
+                    start = dockGap,
+                    end = 28.dp,
+                    top = dockTop,
+                    bottom = dockBottom
+                )
+                .width(dockWidth)
         )
 
         // 4. Шапка и нижние панели лежат поверх рабочих столов
@@ -433,17 +436,17 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 }
             }
 
-            // Низ: капсула кнопок + док (одной высоты)
+            // Низ: капсула горячих клавиш под боковым доком
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged { bottomPx = it.height },
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(Modifier.weight(1f))
                 SystemNavigationCapsule(
                     scale = settings.panelScale,
                     uiScale = uiScale,
-                    modifier = Modifier.onSizeChanged { capsuleWidthPx = it.width },
                     onBack = {
                         when {
                             showAddWidget -> showAddWidget = false
@@ -465,8 +468,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     },
                     onRecents = { systemActions.triggerRecents() }
                 )
-
-                Spacer(Modifier.weight(1f))
             }
         }
 

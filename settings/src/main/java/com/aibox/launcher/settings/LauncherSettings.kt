@@ -43,16 +43,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
         private set
 
-    /** Ширина дока относительно доступного места: меняется растягиванием долгим нажатием. */
-    var dockWidth by mutableFloatStateOf(prefs.getFloat(K_DOCK_WIDTH, 1f).coerceIn(0.45f, 1f))
-        private set
-
-    /** Док ведёт себя как виджет: его можно двигать, растягивать и временно убирать. */
-    var dockVisible by mutableStateOf(prefs.getBoolean(K_DOCK_VISIBLE, true))
-        private set
-    var dockLayout by mutableStateOf(parseDockLayout(prefs.getString(K_DOCK_LAYOUT, null)))
-        private set
-
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
@@ -75,10 +65,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var skyPrecipitation by mutableStateOf(prefs.getBoolean(K_SKY_PRECIP, true))
         private set
 
-    /** Порядок иконок в доке (пакеты); новые приложения встают в конец. */
-    var dockOrder by mutableStateOf(parseTokens(prefs.getString(K_DOCK_ORDER, "")))
-        private set
-
     /** Размеры виджетов: ключ «страница:запись», например «1:date». */
     var widgetSizes by mutableStateOf(parseSizes(prefs.getString(K_SIZES, "")))
         private set
@@ -86,11 +72,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
         private set
     var wallpaperPath by mutableStateOf(prefs.getString(K_WP_PATH, "") ?: "")
-        private set
-
-    var hiddenInDock by mutableStateOf(
-        prefs.getStringSet(K_HIDDEN, emptySet())?.toSet() ?: emptySet<String>()
-    )
         private set
 
     fun updatePanelScale(value: Float) {
@@ -212,44 +193,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_QUICK, quickScale).apply()
     }
 
-    fun updateDockWidth(value: Float) {
-        dockWidth = value.coerceIn(0.45f, 1f)
-        prefs.edit().putFloat(K_DOCK_WIDTH, dockWidth).apply()
-    }
-
-    fun updateDockVisible(value: Boolean) {
-        dockVisible = value
-        prefs.edit().putBoolean(K_DOCK_VISIBLE, value).apply()
-    }
-
-    fun updateDockLayout(value: DesktopWidgetSize) {
-        dockLayout = DesktopWidgetSize(
-            weight = value.weight.coerceIn(0.3f, 1f),
-            height = value.height.coerceIn(0.06f, 0.22f),
-            x = value.x.coerceIn(0f, 1f - value.weight.coerceIn(0.3f, 1f)),
-            y = value.y.coerceIn(0f, 1f - value.height.coerceIn(0.06f, 0.22f))
-        )
-        prefs.edit()
-            .putString(
-                K_DOCK_LAYOUT,
-                "${dockLayout.weight},${dockLayout.height},${dockLayout.x},${dockLayout.y}"
-            )
-            .apply()
-    }
-
-    private fun parseDockLayout(raw: String?): DesktopWidgetSize {
-        val values = (raw ?: "").split(',')
-        val weight = values.getOrNull(0)?.toFloatOrNull()
-        val height = values.getOrNull(1)?.toFloatOrNull()
-        val x = values.getOrNull(2)?.toFloatOrNull()
-        val y = values.getOrNull(3)?.toFloatOrNull()
-        return if (weight == null || height == null || x == null || y == null) {
-            DesktopWidgetSize(weight = 0.78f, height = 0.11f, x = 0.11f, y = 0.86f)
-        } else {
-            DesktopWidgetSize(weight, height, x, y)
-        }
-    }
-
     /** Возвращает все размеры к значениям по умолчанию. */
     fun resetSizes() {
         updateUiScale(DEFAULT_UI_SCALE)
@@ -259,19 +202,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updatePanelScale(1f)
         updateIconScale(1f)
         updateClockScale(1f)
-        updateDockWidth(1f)
-        updateDockVisible(true)
-        updateDockLayout(parseDockLayout(null))
     }
 
     fun updateSkyPrecipitation(value: Boolean) {
         skyPrecipitation = value
         prefs.edit().putBoolean(K_SKY_PRECIP, value).apply()
-    }
-
-    fun updateDockOrder(packages: List<String>) {
-        dockOrder = packages
-        prefs.edit().putString(K_DOCK_ORDER, packages.joinToString(",")).apply()
     }
 
     fun selectWallpaper(type: WallpaperType, path: String = "") {
@@ -283,11 +218,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     /** Файл обоев удалён с устройства — вернуться к теме оформления. */
     fun wallpaperFileDeleted(path: String) {
         if (wallpaperPath == path) selectWallpaper(WallpaperType.THEME)
-    }
-
-    fun setShownInDock(packageName: String, shown: Boolean) {
-        hiddenInDock = if (shown) hiddenInDock - packageName else hiddenInDock + packageName
-        prefs.edit().putStringSet(K_HIDDEN, hiddenInDock.toSet()).apply()
     }
 
     private fun parseSizes(raw: String?): Map<String, DesktopWidgetSize> =
@@ -309,14 +239,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val DEFAULT_UI_SCALE = 0.85f
         const val K_SIZES = "widget_sizes"
         const val K_SKY_PRECIP = "sky_precip"
-        const val K_DOCK_ORDER = "dock_order"
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
         const val K_WIDGET = "widget_scale"
         const val K_QUICK = "quick_scale"
-        const val K_DOCK_WIDTH = "dock_width"
-        const val K_DOCK_VISIBLE = "dock_visible"
-        const val K_DOCK_LAYOUT = "dock_layout"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"
@@ -330,6 +256,5 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_P2 = "widgets_page2"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
-        const val K_HIDDEN = "dock_hidden"
     }
 }

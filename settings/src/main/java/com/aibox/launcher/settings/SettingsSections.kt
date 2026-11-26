@@ -644,24 +644,6 @@ internal fun PersonalizationSection(
         )
         RowDivider()
         SettingsRow(
-            icon = Icons.Rounded.Apps,
-            iconColor = Color(0xFF8E8E93),
-            title = "Размер дока",
-            value = "${(settings.panelScale * 100).roundToInt()}%",
-            subtitle = "Док и кнопки навигации — всегда одной высоты",
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Размер дока",
-                        options = percentOptions(listOf(75, 90, 100, 115, 135)),
-                        selectedKey = (settings.panelScale * 100).roundToInt().toString(),
-                        onSelect = { settings.updatePanelScale(it.toInt() / 100f) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SettingsRow(
             icon = Icons.Rounded.MusicNote,
             iconColor = Color(0xFFFF375F),
             title = "Музыкальное приложение",
@@ -1223,7 +1205,7 @@ internal fun AppsSection(
         }
     }
 
-    HintText("Нажмите на приложение, чтобы поставить свою иконку. Переключатель — показывать ли приложение в доке. В доке иконки можно переставлять: зажмите и перетащите.")
+    HintText("Нажмите на приложение, чтобы поставить свою иконку. Все приложения автоматически есть в боковом доке.")
     SettingsGroup {
         apps.forEachIndexed { index, app ->
             if (index > 0) RowDivider()
@@ -1270,10 +1252,6 @@ internal fun AppsSection(
                         Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
                     }
                 }
-                androidx.compose.material3.Switch(
-                    checked = app.packageName !in settings.hiddenInDock,
-                    onCheckedChange = { settings.setShownInDock(app.packageName, it) }
-                )
             }
         }
     }
@@ -1650,57 +1628,6 @@ internal fun SizesSection(settings: LauncherSettings) {
         )
         RowDivider()
         SliderRow(
-            title = "Док и кнопки навигации",
-            valueText = percent(settings.panelScale),
-            value = settings.panelScale,
-            valueRange = 0.75f..1.35f,
-            onValueChange = { settings.updatePanelScale(it) }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Apps,
-            iconColor = Color(0xFF5E5CE6),
-            title = "Показывать док",
-            checked = settings.dockVisible,
-            onCheckedChange = { settings.updateDockVisible(it) },
-            subtitle = "Как у виджетов: перенос пальцем, стрелка размера и красный крестик"
-        )
-        if (settings.dockVisible) {
-            RowDivider()
-            SliderRow(
-                title = "Ширина дока",
-                valueText = percent(settings.dockLayout.weight),
-                value = settings.dockLayout.weight,
-                valueRange = 0.3f..1f,
-                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(weight = it)) }
-            )
-            RowDivider()
-            SliderRow(
-                title = "Высота дока",
-                valueText = percent(settings.dockLayout.height),
-                value = settings.dockLayout.height,
-                valueRange = 0.06f..0.22f,
-                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(height = it)) }
-            )
-            RowDivider()
-            SliderRow(
-                title = "Положение дока — влево/вправо",
-                valueText = percent(settings.dockLayout.x),
-                value = settings.dockLayout.x,
-                valueRange = 0f..(1f - settings.dockLayout.weight).coerceAtLeast(0f),
-                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(x = it)) }
-            )
-            RowDivider()
-            SliderRow(
-                title = "Положение дока — вверх/вниз",
-                valueText = percent(settings.dockLayout.y),
-                value = settings.dockLayout.y,
-                valueRange = 0f..(1f - settings.dockLayout.height).coerceAtLeast(0f),
-                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(y = it)) }
-            )
-        }
-        RowDivider()
-        SliderRow(
             title = "Иконки приложений",
             valueText = percent(settings.iconScale),
             value = settings.iconScale,
@@ -1717,5 +1644,5 @@ internal fun SizesSection(settings: LauncherSettings) {
         )
     }
     PrimaryButton("Сбросить все размеры") { settings.resetSizes() }
-    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент. Док можно двигать и растягивать прямо на экране; кнопка сброса вернёт его на место.")
+    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент.")
 }

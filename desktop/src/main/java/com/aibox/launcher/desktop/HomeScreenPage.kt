@@ -151,11 +151,12 @@ fun HomeScreenPage(
     uiScale: Float = 1f,
     topPadding: Dp,
     bottomPadding: Dp,
+    endPadding: Dp = 28.dp,
     modifier: Modifier = Modifier
 ) {
     val area = modifier
         .fillMaxSize()
-        .padding(start = 28.dp, end = 28.dp, top = topPadding, bottom = bottomPadding)
+        .padding(start = 28.dp, end = endPadding, top = topPadding, bottom = bottomPadding)
 
     // Иконки не зависят от общего масштаба интерфейса.
     val effectiveIconScale = iconScale / uiScale.coerceAtLeast(0.01f)
