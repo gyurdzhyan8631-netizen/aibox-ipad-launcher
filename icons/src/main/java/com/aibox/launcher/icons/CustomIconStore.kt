@@ -29,7 +29,26 @@ object CustomIconStore {
     fun file(context: Context, packageName: String): File =
         File(dir(context), "$packageName.png")
 
-    fun has(context: Context, packageName: String): Boolean = file(context, packageName).exists()
+    private fun builtinFile(context: Context, packageName: String): File =
+        File(dir(context), "$packageName.builtin")
+
+    fun has(context: Context, packageName: String): Boolean =
+        file(context, packageName).exists() || builtinFile(context, packageName).exists()
+
+    /** Ключ встроенной иконки лаунчера, если она назначена приложению. */
+    fun builtinKey(context: Context, packageName: String): String? = runCatching {
+        builtinFile(context, packageName).takeIf { it.exists() }
+            ?.readText()?.trim()?.takeIf { it.isNotEmpty() }
+    }.getOrNull()
+
+    /** Поставить на приложение одну из встроенных иконок. */
+    fun setBuiltin(context: Context, packageName: String, key: String): Boolean = runCatching {
+        if (BuiltinIcons.byKey(key) == null) return@runCatching false
+        file(context, packageName).delete()
+        builtinFile(context, packageName).writeText(key)
+        changed(packageName)
+        true
+    }.getOrDefault(false)
 
     /** Скачанные пользователем иконки, сначала новые. */
     fun library(context: Context): List<File> =
@@ -52,6 +71,7 @@ object CustomIconStore {
     /** Вызывать не из главного потока. */
     fun set(context: Context, packageName: String, uri: Uri): Boolean = runCatching {
         val bitmap = decode(context, uri) ?: return@runCatching false
+        builtinFile(context, packageName).delete()
         save(file(context, packageName), bitmap)
         changed(packageName)
         true
@@ -59,6 +79,7 @@ object CustomIconStore {
 
     /** Применить готовую картинку (например, из пакета иконок). */
     fun setBitmap(context: Context, packageName: String, bitmap: Bitmap): Boolean = runCatching {
+        builtinFile(context, packageName).delete()
         save(file(context, packageName), bitmap)
         changed(packageName)
         true
@@ -67,6 +88,7 @@ object CustomIconStore {
     /** Применить иконку из библиотеки к приложению. */
     fun setFromLibrary(context: Context, packageName: String, source: File): Boolean = runCatching {
         val bitmap = BitmapFactory.decodeFile(source.path) ?: return@runCatching false
+        builtinFile(context, packageName).delete()
         save(file(context, packageName), bitmap)
         changed(packageName)
         true
@@ -74,6 +96,7 @@ object CustomIconStore {
 
     fun clear(context: Context, packageName: String) {
         file(context, packageName).delete()
+        builtinFile(context, packageName).delete()
         changed(packageName)
     }
 

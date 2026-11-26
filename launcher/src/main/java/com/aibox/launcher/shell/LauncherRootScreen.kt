@@ -344,7 +344,26 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             )
         }
 
-        // 3. Шапка и нижние панели лежат поверх рабочих столов
+        // 3. Док — такой же свободно размещаемый элемент, как виджет.
+        DockLayer(
+            visible = settings.dockVisible,
+            layout = settings.dockLayout,
+            editMode = editMode,
+            onHide = {
+                settings.updateDockVisible(false)
+                editMode = false
+            },
+            onChange = { settings.updateDockLayout(it) },
+            apps = dockApps,
+            onLaunchApp = launchApp,
+            onOpenDrawer = { showAppDrawer = !showAppDrawer },
+            onOpenSettings = { openSettings("sizes") },
+            onReorder = { settings.updateDockOrder(it) },
+            panelScale = settings.panelScale,
+            uiScale = uiScale
+        )
+
+        // 4. Шапка и нижние панели лежат поверх рабочих столов
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -447,34 +466,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     onRecents = { systemActions.triggerRecents() }
                 )
 
-                Spacer(Modifier.width(14.dp))
-
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(settings.dockWidth),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CarouselDockBar(
-                        apps = dockApps,
-                        onLaunchApp = launchApp,
-                        onOpenDrawer = { showAppDrawer = !showAppDrawer },
-                        onOpenSettings = { openSettings("personalization") },
-                        onReorder = { settings.updateDockOrder(it) },
-                        modifier = Modifier.fillMaxWidth(),
-                        scale = settings.panelScale,
-                        uiScale = uiScale,
-                        dockWidth = settings.dockWidth,
-                        onDockWidthChange = { settings.updateDockWidth(it) }
-                    )
-                }
-
-                // Капсула слева и такой же отступ справа — док остаётся по центру экрана.
-                Spacer(
-                    Modifier.width(
-                        14.dp + with(LocalDensity.current) { capsuleWidthPx.toDp() }
-                    )
-                )
+                Spacer(Modifier.weight(1f))
             }
         }
 

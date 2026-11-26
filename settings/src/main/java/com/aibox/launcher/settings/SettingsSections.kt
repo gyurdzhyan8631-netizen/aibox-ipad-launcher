@@ -21,6 +21,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +30,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -94,6 +98,9 @@ import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.model.WallpaperTheme
+import com.aibox.launcher.core.ui.glassSurface
+import com.aibox.launcher.icons.AppIconPreview
+import com.aibox.launcher.icons.BuiltinIcons
 import com.aibox.launcher.icons.CustomIconStore
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
@@ -831,7 +838,11 @@ internal fun CustomIconsSection(
             Toast.makeText(context, "На устройстве нет приложения для выбора файлов", Toast.LENGTH_LONG).show()
         }
     }
+    var targetApp by remember { mutableStateOf<String?>(null) }
+    var packPicker by remember { mutableStateOf<IconPackInfo?>(null) }
 
+    Box(modifier = Modifier.fillMaxSize()) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
     SectionTitle("Пакеты иконок на устройстве")
     if (packs.isEmpty()) {
         HintText("Готовые пакеты иконок не найдены. Установите пакет иконок — он появится здесь.")
@@ -843,34 +854,67 @@ internal fun CustomIconsSection(
                     icon = Icons.Rounded.Apps,
                     iconColor = Color(0xFFBF5AF2),
                     title = pack.label,
-                    subtitle = "Применить иконки пакета к установленным приложениям",
-                    onClick = {
-                        onPick(
-                            PickerRequest(
-                                title = pack.label,
-                                options = listOf(
-                                    PickerOption("apply", "Применить иконки пакета"),
-                                    PickerOption("", "Отмена")
-                                ),
-                                selectedKey = "",
-                                onSelect = { key ->
-                                    if (key != "apply") return@PickerRequest
-                                    scope.launch {
-                                        val count = withContext(Dispatchers.IO) {
-                                            IconPackRepository.apply(context, pack, apps)
-                                        }
-                                        Toast.makeText(
-                                            context,
-                                            if (count > 0) "Применено иконок: $count"
-                                            else "В пакете нет иконок для установленных приложений",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            )
-                        )
-                    }
+                    subtitle = "Открыть набор иконок и выбрать нужную вручную",
+                    onClick = { packPicker = pack }
                 )
+            }
+        }
+    }
+
+    SectionTitle("Встроенные иконки лаунчера")
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.Apps,
+            iconColor = Color(0xFF0A84FF),
+            title = "Приложение: " + (targetApp?.let { pkg ->
+                apps.firstOrNull { it.packageName == pkg }?.label ?: pkg
+            } ?: "не выбрано"),
+            subtitle = "Нажмите, чтобы выбрать приложение, затем иконку ниже",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Для какого приложения?",
+                        options = listOf(PickerOption("", "Отмена")) + apps.map {
+                            PickerOption(it.packageName, it.label)
+                        },
+                        selectedKey = targetApp.orEmpty(),
+                        onSelect = { key -> if (key.isNotEmpty()) targetApp = key }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(12.dp)
+        ) {
+            BuiltinIcons.list.forEach { item ->
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x33FFFFFF))
+                        .clickable {
+                            val pkg = targetApp
+                            if (pkg == null) {
+                                Toast.makeText(context, "Сначала выберите приложение", Toast.LENGTH_SHORT).show()
+                            } else {
+                                CustomIconStore.setBuiltin(context, pkg, item.key)
+                                Toast.makeText(context, "Иконка применена", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                ) {
+                    Icon(
+                        imageVector = item.vector,
+                        contentDescription = item.label,
+                        tint = Color.White,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
             }
         }
     }
@@ -969,7 +1013,6 @@ internal fun CustomIconsSection(
     SettingsGroup {
         apps.forEachIndexed { index, app ->
             if (index > 0) RowDivider()
-            val icon = rememberAppIcon(app.packageName)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -1011,27 +1054,143 @@ internal fun CustomIconsSection(
                     }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                if (icon != null) {
-                    Image(
-                        bitmap = icon,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.12f))
-                    )
-                }
+                AppIconPreview(app.packageName, app.label, 40.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = app.label, color = Color.White, fontSize = 17.sp)
                     if (CustomIconStore.has(context, app.packageName)) {
                         Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+    }
+    packPicker?.let { picked ->
+        PackIconPickerDialog(
+            pack = picked,
+            apps = apps,
+            onDismiss = { packPicker = null },
+            onApplied = { refresh() }
+        )
+    }
+    }
+}
+
+/** Окно выбора конкретной иконки из установленного пакета иконок. */
+@Composable
+private fun PackIconPickerDialog(
+    pack: IconPackInfo,
+    apps: List<InstalledApp>,
+    onDismiss: () -> Unit,
+    onApplied: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var app by remember { mutableStateOf<InstalledApp?>(null) }
+    var icons by remember { mutableStateOf<List<PackIconInfo>>(emptyList()) }
+    LaunchedEffect(pack.packageName) {
+        icons = withContext(Dispatchers.IO) { IconPackRepository.icons(context, pack) }
+    }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xDD000000))
+            .clickable(onClick = onDismiss)
+    ) {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth(0.82f)
+                .heightIn(max = 560.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xF5171A24))
+                .glassSurface(RoundedCornerShape(24.dp), strength = 0.7f)
+                .clickable(enabled = true, onClick = {})
+                .padding(16.dp)
+        ) {
+            Text(text = "Иконки: ${pack.label}", color = Color.White, fontSize = 20.sp)
+            Text(
+                text = "Приложение: ${app?.label ?: "не выбрано"}",
+                color = SettingsColors.textSecondary,
+                fontSize = 14.sp
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                apps.forEach { item ->
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (item.packageName == app?.packageName) Color(0x550A84FF)
+                                else Color(0x22FFFFFF)
+                            )
+                            .clickable { app = item }
+                    ) {
+                        AppIconPreview(item.packageName, item.label, 38.dp)
+                    }
+                }
+            }
+            Text(
+                text = if (icons.isEmpty()) "Иконки в пакете не найдены" else "Выберите иконку",
+                color = SettingsColors.textSecondary,
+                fontSize = 14.sp
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                icons.forEach { info ->
+                    val bitmap by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, info.name, pack.packageName) {
+                        value = withContext(Dispatchers.IO) {
+                            IconPackRepository.iconBitmap(context, pack, info.name)
+                                ?.asImageBitmap()
+                        }
+                    }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x22FFFFFF))
+                            .clickable {
+                                val chosen = app
+                                if (chosen == null) {
+                                    Toast.makeText(context, "Сначала выберите приложение", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    scope.launch {
+                                        val ok = withContext(Dispatchers.IO) {
+                                            IconPackRepository.setIcon(context, pack, info.name, chosen.packageName)
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            if (ok) "Иконка применена" else "Не удалось применить иконку",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        onApplied()
+                                    }
+                                    onDismiss()
+                                }
+                            }
+                    ) {
+                        val iconBitmap = bitmap
+                        if (iconBitmap != null) {
+                            Image(
+                                bitmap = iconBitmap,
+                                contentDescription = info.label,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1068,7 +1227,6 @@ internal fun AppsSection(
     SettingsGroup {
         apps.forEachIndexed { index, app ->
             if (index > 0) RowDivider()
-            val icon = rememberAppIcon(app.packageName)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -1104,22 +1262,7 @@ internal fun AppsSection(
                     }
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                if (icon != null) {
-                    Image(
-                        bitmap = icon,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color.White.copy(alpha = 0.12f))
-                    )
-                }
+                AppIconPreview(app.packageName, app.label, 40.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = app.label, color = Color.White, fontSize = 17.sp)
@@ -1514,6 +1657,49 @@ internal fun SizesSection(settings: LauncherSettings) {
             onValueChange = { settings.updatePanelScale(it) }
         )
         RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Apps,
+            iconColor = Color(0xFF5E5CE6),
+            title = "Показывать док",
+            checked = settings.dockVisible,
+            onCheckedChange = { settings.updateDockVisible(it) },
+            subtitle = "Как у виджетов: перенос пальцем, стрелка размера и красный крестик"
+        )
+        if (settings.dockVisible) {
+            RowDivider()
+            SliderRow(
+                title = "Ширина дока",
+                valueText = percent(settings.dockLayout.weight),
+                value = settings.dockLayout.weight,
+                valueRange = 0.3f..1f,
+                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(weight = it)) }
+            )
+            RowDivider()
+            SliderRow(
+                title = "Высота дока",
+                valueText = percent(settings.dockLayout.height),
+                value = settings.dockLayout.height,
+                valueRange = 0.06f..0.22f,
+                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(height = it)) }
+            )
+            RowDivider()
+            SliderRow(
+                title = "Положение дока — влево/вправо",
+                valueText = percent(settings.dockLayout.x),
+                value = settings.dockLayout.x,
+                valueRange = 0f..(1f - settings.dockLayout.weight).coerceAtLeast(0f),
+                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(x = it)) }
+            )
+            RowDivider()
+            SliderRow(
+                title = "Положение дока — вверх/вниз",
+                valueText = percent(settings.dockLayout.y),
+                value = settings.dockLayout.y,
+                valueRange = 0f..(1f - settings.dockLayout.height).coerceAtLeast(0f),
+                onValueChange = { settings.updateDockLayout(settings.dockLayout.copy(y = it)) }
+            )
+        }
+        RowDivider()
         SliderRow(
             title = "Иконки приложений",
             valueText = percent(settings.iconScale),
@@ -1531,5 +1717,5 @@ internal fun SizesSection(settings: LauncherSettings) {
         )
     }
     PrimaryButton("Сбросить все размеры") { settings.resetSizes() }
-    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент. Док и кнопки навигации всегда остаются одной высоты.")
+    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент. Док можно двигать и растягивать прямо на экране; кнопка сброса вернёт его на место.")
 }

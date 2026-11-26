@@ -23,10 +23,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -74,21 +72,12 @@ fun CarouselDockBar(
     onReorder: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
     scale: Float = DockDefaults.DEFAULT_SCALE,
-    uiScale: Float = 1f,
-    dockWidth: Float = 1f,
-    onDockWidthChange: (Float) -> Unit = {}
+    uiScale: Float = 1f
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
     // Размер иконки задаётся только panelScale, а не общим uiScale.
     val iconSize = maxOf(panelHeight - 36.dp, 28.dp) / uiScale.coerceAtLeast(0.01f)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
-
-    // Растягиваем только ширину: стрелка появляется при долгом нажатии,
-    // иконки при этом остаются квадратными.
-    var dockWidthPx by remember { mutableIntStateOf(1) }
-    var showArrow by remember { mutableStateOf(false) }
-    val currentWidth by rememberUpdatedState(dockWidth)
-    val setWidth by rememberUpdatedState(onDockWidthChange)
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -121,31 +110,14 @@ fun CarouselDockBar(
         if (draggedKey == null) snapToCenter(listState)
     }
 
-    Box(
-        modifier = modifier
-            .onSizeChanged { dockWidthPx = it.width.coerceAtLeast(1) }
-            .pointerInput(Unit) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { showArrow = true },
-                    onDrag = { change, amount ->
-                        change.consume()
-                        // Тянем вправо — док растягивается, влево — сужается.
-                        setWidth(
-                            (currentWidth + amount.x / dockWidthPx).coerceIn(0.45f, 1f)
-                        )
-                    },
-                    onDragEnd = { showArrow = false },
-                    onDragCancel = { showArrow = false }
-                )
-            }
-    ) {
+    Box(modifier = modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
             .height(panelHeight)
             .clip(shape)
-            .background(Color(0x40080A10))
+            .background(Color(0xC211141F))
             .glassSurface(shape)
             .padding(horizontal = 10.dp)
     ) {
@@ -231,26 +203,6 @@ fun CarouselDockBar(
             onClick = onOpenSettings
         )
     }
-
-        // Стрелка появляется при долгом нажатии: потяните её вправо, чтобы растянуть док.
-        if (showArrow) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-6).dp, y = (-6).dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0A84FF))
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = "Растянуть док",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
     }
 }
 

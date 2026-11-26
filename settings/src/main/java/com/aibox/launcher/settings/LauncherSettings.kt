@@ -47,6 +47,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var dockWidth by mutableFloatStateOf(prefs.getFloat(K_DOCK_WIDTH, 1f).coerceIn(0.45f, 1f))
         private set
 
+    /** Док ведёт себя как виджет: его можно двигать, растягивать и временно убирать. */
+    var dockVisible by mutableStateOf(prefs.getBoolean(K_DOCK_VISIBLE, true))
+        private set
+    var dockLayout by mutableStateOf(parseDockLayout(prefs.getString(K_DOCK_LAYOUT, null)))
+        private set
+
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
@@ -211,6 +217,39 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_DOCK_WIDTH, dockWidth).apply()
     }
 
+    fun updateDockVisible(value: Boolean) {
+        dockVisible = value
+        prefs.edit().putBoolean(K_DOCK_VISIBLE, value).apply()
+    }
+
+    fun updateDockLayout(value: DesktopWidgetSize) {
+        dockLayout = DesktopWidgetSize(
+            weight = value.weight.coerceIn(0.3f, 1f),
+            height = value.height.coerceIn(0.06f, 0.22f),
+            x = value.x.coerceIn(0f, 1f - value.weight.coerceIn(0.3f, 1f)),
+            y = value.y.coerceIn(0f, 1f - value.height.coerceIn(0.06f, 0.22f))
+        )
+        prefs.edit()
+            .putString(
+                K_DOCK_LAYOUT,
+                "${dockLayout.weight},${dockLayout.height},${dockLayout.x},${dockLayout.y}"
+            )
+            .apply()
+    }
+
+    private fun parseDockLayout(raw: String?): DesktopWidgetSize {
+        val values = (raw ?: "").split(',')
+        val weight = values.getOrNull(0)?.toFloatOrNull()
+        val height = values.getOrNull(1)?.toFloatOrNull()
+        val x = values.getOrNull(2)?.toFloatOrNull()
+        val y = values.getOrNull(3)?.toFloatOrNull()
+        return if (weight == null || height == null || x == null || y == null) {
+            DesktopWidgetSize(weight = 0.78f, height = 0.11f, x = 0.11f, y = 0.86f)
+        } else {
+            DesktopWidgetSize(weight, height, x, y)
+        }
+    }
+
     /** Возвращает все размеры к значениям по умолчанию. */
     fun resetSizes() {
         updateUiScale(DEFAULT_UI_SCALE)
@@ -221,6 +260,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updateIconScale(1f)
         updateClockScale(1f)
         updateDockWidth(1f)
+        updateDockVisible(true)
+        updateDockLayout(parseDockLayout(null))
     }
 
     fun updateSkyPrecipitation(value: Boolean) {
@@ -274,6 +315,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_WIDGET = "widget_scale"
         const val K_QUICK = "quick_scale"
         const val K_DOCK_WIDTH = "dock_width"
+        const val K_DOCK_VISIBLE = "dock_visible"
+        const val K_DOCK_LAYOUT = "dock_layout"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"

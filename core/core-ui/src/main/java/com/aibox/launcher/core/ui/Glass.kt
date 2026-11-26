@@ -17,9 +17,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 
 /**
- * Матовое стекло: мягко рассеянная светлая подложка, полупрозрачная заливка
- * с переходами и тонкая светлая кромка. Не размывает содержимое карточки,
- * поэтому остаётся лёгким для GPU.
+ * Неброское матовое стекло: тёмная полупрозрачная подложка, мягкая кромка и
+ * едва заметное рассеивание. Текст поверх остаётся контрастным и читаемым.
  */
 fun Modifier.glassSurface(
     shape: Shape,
@@ -28,10 +27,10 @@ fun Modifier.glassSurface(
 ): Modifier = this
     .clip(shape)
     .drawBehind {
-        val alpha = ((0.24f * strength).coerceIn(0f, 1f))
+        val alpha = (0.05f * strength).coerceIn(0f, 1f)
         val paint = androidx.compose.ui.graphics.Paint().apply {
-            color = Color.White.copy(alpha = alpha)
-            asFrameworkPaint().maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
+            color = tint.copy(alpha = alpha)
+            asFrameworkPaint().maskFilter = BlurMaskFilter(16f, BlurMaskFilter.Blur.NORMAL)
         }
         val radius = minOf(size.width, size.height) / 4f
         drawIntoCanvas { canvas ->
@@ -41,9 +40,9 @@ fun Modifier.glassSurface(
     .background(
         Brush.verticalGradient(
             listOf(
-                tint.copy(alpha = (0.32f * strength).coerceIn(0f, 1f)),
-                tint.copy(alpha = (0.16f * strength).coerceIn(0f, 1f)),
-                tint.copy(alpha = (0.24f * strength).coerceIn(0f, 1f))
+                tint.copy(alpha = (0.09f * strength).coerceIn(0f, 1f)),
+                tint.copy(alpha = (0.04f * strength).coerceIn(0f, 1f)),
+                tint.copy(alpha = (0.07f * strength).coerceIn(0f, 1f))
             )
         )
     )
@@ -51,9 +50,9 @@ fun Modifier.glassSurface(
         width = 1.dp,
         brush = Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = (0.58f * strength).coerceIn(0f, 1f)),
-                Color.White.copy(alpha = (0.08f * strength).coerceIn(0f, 1f)),
-                Color.White.copy(alpha = (0.30f * strength).coerceIn(0f, 1f))
+                Color.White.copy(alpha = (0.28f * strength).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = (0.06f * strength).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = (0.18f * strength).coerceIn(0f, 1f))
             )
         ),
         shape = shape

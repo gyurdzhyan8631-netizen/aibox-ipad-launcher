@@ -275,7 +275,7 @@ private fun Sidebar(
                     Text(
                         text = item.title,
                         color = Color.White,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         maxLines = 1,
                         fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
                     )

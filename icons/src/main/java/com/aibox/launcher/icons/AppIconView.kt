@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.core.graphics.drawable.toBitmap
 import com.aibox.launcher.core.model.InstalledApp
@@ -79,6 +81,49 @@ fun rememberAppIcon(packageName: String): ImageBitmap? {
     return state.value
 }
 
+/**
+ * Превью иконки: встроенная иконка лаунчера рисуется вектором,
+ * пользовательская или системная — растром.
+ */
+@Composable
+fun AppIconPreview(
+    packageName: String,
+    label: String,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    // version обязателен: по нему превью обновляется сразу после назначения иконки.
+    val version = CustomIconStore.version
+    val builtin = remember(version, packageName) {
+        CustomIconStore.builtinKey(context, packageName)?.let { BuiltinIcons.byKey(it) }
+    }
+    val bitmap = rememberAppIcon(packageName)
+    val shape = RoundedCornerShape(size * 0.22f)
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .background(Color.White.copy(alpha = 0.10f))
+    ) {
+        when {
+            builtin != null -> Icon(
+                imageVector = builtin.vector,
+                contentDescription = label,
+                tint = Color.White,
+                modifier = Modifier.size(size * 0.62f)
+            )
+            bitmap != null -> Image(
+                bitmap = bitmap,
+                contentDescription = label,
+                modifier = Modifier.size(size)
+            )
+        }
+    }
+}
+
 /** Иконка приложения со скруглением и подписью. */
 @Composable
 fun AppIconView(
@@ -90,7 +135,6 @@ fun AppIconView(
     labelColor: Color = Color.White,
     labelSize: TextUnit = 12.sp
 ) {
-    val icon = rememberAppIcon(app.packageName)
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
@@ -98,23 +142,7 @@ fun AppIconView(
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val shape = RoundedCornerShape(iconSize * 0.22f)
-        if (icon != null) {
-            Image(
-                bitmap = icon,
-                contentDescription = app.label,
-                modifier = Modifier
-                    .size(iconSize)
-                    .clip(shape)
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(iconSize)
-                    .clip(shape)
-                    .background(Color.White.copy(alpha = 0.14f))
-            )
-        }
+        AppIconPreview(app.packageName, app.label, iconSize)
         if (showLabel) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(

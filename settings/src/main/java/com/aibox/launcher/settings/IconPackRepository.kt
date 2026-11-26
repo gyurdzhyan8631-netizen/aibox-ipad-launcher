@@ -12,8 +12,10 @@ import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.icons.CustomIconStore
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
+import java.util.zip.ZipFile
 
 data class IconPackInfo(val packageName: String, val label: String)
+data class PackIconInfo(val name: String, val label: String)
 
 /**
  * Поиск готовых пакетов иконок на устройстве и применение их иконок к приложениям.
@@ -86,6 +88,40 @@ object IconPackRepository {
             if (CustomIconStore.setBitmap(context, packageName, bitmap)) applied++
         }
         return applied
+    }
+
+    /** Все иконки пакета, чтобы их можно было выбрать вручную, а не только по appfilter. */
+    fun icons(context: Context, pack: IconPackInfo): List<PackIconInfo> {
+        val names = linkedSetOf<String>()
+        mapping(context, pack).values.forEach { names += it }
+        runCatching {
+            val source = context.packageManager.getApplicationInfo(pack.packageName, 0).sourceDir
+            val zip = ZipFile(source)
+            try {
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val path = entries.nextElement().name
+                    if (path.startsWith("res/drawable") && path.endsWith(".png")) {
+                        val name = path.substringAfterLast('/').substringBeforeLast('.')
+                        if (name.isNotBlank()) names += name
+                    }
+                }
+            } finally {
+                zip.close()
+            }
+        }
+        return names.take(160).map { PackIconInfo(it, it.replace('_', ' ')) }
+    }
+
+    fun iconBitmap(context: Context, pack: IconPackInfo, name: String): Bitmap? = runCatching {
+        val res = context.packageManager.getResourcesForApplication(pack.packageName)
+        val id = res.getIdentifier(name, "drawable", pack.packageName)
+        if (id == 0) null else res.getDrawable(id, null)?.let(::toBitmap)
+    }.getOrNull()
+
+    fun setIcon(context: Context, pack: IconPackInfo, name: String, packageName: String): Boolean {
+        val bitmap = iconBitmap(context, pack, name) ?: return false
+        return CustomIconStore.setBitmap(context, packageName, bitmap)
     }
 
     private fun mapping(context: Context, pack: IconPackInfo): Map<String, String> {

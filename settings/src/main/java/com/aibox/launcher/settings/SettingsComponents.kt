@@ -44,12 +44,13 @@ import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.ui.glassSurface
 
 internal object SettingsColors {
-    val background = Color(0xE80B0D14)
+    // Плотный фон: текст не «сливается» с узорами обоев под настройками.
+    val background = Color(0xF50A0D14)
     val card = Color(0xFF1C1F2A)
-    val cardBorder = Color(0x22FFFFFF)
+    val cardBorder = Color(0x2EFFFFFF)
     val accent = Color(0xFF0A84FF)
-    val textSecondary = Color(0xFF9AA0AE)
-    val divider = Color(0x22FFFFFF)
+    val textSecondary = Color(0xFFC9CEDA)
+    val divider = Color(0x2EFFFFFF)
 }
 
 /** Скруглённая группа строк, как в настройках iPad. */
@@ -118,13 +119,13 @@ internal fun SettingsRow(
         IconBadge(icon, iconColor)
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, fontSize = 17.sp)
+            Text(text = title, color = Color.White, fontSize = 18.sp)
             if (subtitle != null) {
-                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 12.sp)
+                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 13.sp)
             }
         }
         if (value.isNotEmpty()) {
-            Text(text = value, color = SettingsColors.textSecondary, fontSize = 15.sp)
+            Text(text = value, color = SettingsColors.textSecondary, fontSize = 16.sp)
         }
         if (showChevron && onClick != null) {
             Spacer(Modifier.width(6.dp))
@@ -156,9 +157,9 @@ internal fun SwitchRow(
         IconBadge(icon, iconColor)
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, fontSize = 17.sp)
+            Text(text = title, color = Color.White, fontSize = 18.sp)
             if (subtitle != null) {
-                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 12.sp)
+                Text(text = subtitle, color = SettingsColors.textSecondary, fontSize = 13.sp)
             }
         }
         Switch(
@@ -182,10 +183,10 @@ internal fun SliderRow(
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 17.sp,
+                fontSize = 18.sp,
                 modifier = Modifier.weight(1f)
             )
-            Text(text = valueText, color = SettingsColors.textSecondary, fontSize = 15.sp)
+            Text(text = valueText, color = SettingsColors.textSecondary, fontSize = 16.sp)
         }
         Slider(
             value = value,
@@ -204,7 +205,7 @@ internal fun SectionTitle(text: String) {
     Text(
         text = text,
         color = Color.White,
-        fontSize = 22.sp,
+        fontSize = 23.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(start = 6.dp, top = 6.dp)
     )
@@ -215,7 +216,7 @@ internal fun HintText(text: String) {
     Text(
         text = text,
         color = SettingsColors.textSecondary,
-        fontSize = 13.sp,
+        fontSize = 14.sp,
         modifier = Modifier.padding(horizontal = 6.dp)
     )
 }
