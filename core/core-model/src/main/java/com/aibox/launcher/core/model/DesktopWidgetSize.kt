@@ -1,10 +1,13 @@
 package com.aibox.launcher.core.model
 
 /**
- * Размер виджета на рабочем столе:
- * [weight] — доля ширины в ряду виджетов, [height] — доля высоты рабочей области (0.35…1).
+ * Положение и размер виджета на рабочем столе.
+ * [x], [y] — левый верхний угол в долях рабочей области (0…1),
+ * [weight] — ширина в долях рабочей области, [height] — высота в долях.
  */
 data class DesktopWidgetSize(
     val weight: Float = 1f,
-    val height: Float = 1f
+    val height: Float = 1f,
+    val x: Float = 0f,
+    val y: Float = 0f
 )

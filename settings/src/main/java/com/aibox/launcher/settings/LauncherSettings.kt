@@ -169,7 +169,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit()
             .putString(
                 K_SIZES,
-                widgetSizes.entries.joinToString(";") { "${it.key}=${it.value.weight},${it.value.height}" }
+                widgetSizes.entries.joinToString(";") {
+                    "${it.key}=${it.value.weight},${it.value.height},${it.value.x},${it.value.y}"
+                }
             )
             .apply()
     }
@@ -254,7 +256,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
             val values = parts[1].split(',')
             val weight = values.getOrNull(0)?.toFloatOrNull()
             val height = values.getOrNull(1)?.toFloatOrNull()
-            if (weight == null || height == null) null else parts[0] to DesktopWidgetSize(weight, height)
+            val x = values.getOrNull(2)?.toFloatOrNull() ?: 0f
+            val y = values.getOrNull(3)?.toFloatOrNull() ?: 0f
+            if (weight == null || height == null) null else parts[0] to DesktopWidgetSize(weight, height, x, y)
         }.toMap()
 
     private fun parseTokens(csv: String?): List<String> =

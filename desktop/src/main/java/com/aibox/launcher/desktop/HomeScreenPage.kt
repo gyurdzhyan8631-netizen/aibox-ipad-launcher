@@ -12,15 +12,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -52,7 +48,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,22 +67,28 @@ import com.aibox.launcher.widgets.HostedAppWidget
 import com.aibox.launcher.widgets.MusicWidget
 import com.aibox.launcher.widgets.WeatherWidget
 import com.aibox.launcher.widgets.WeatherWidgetInfo
-import kotlin.math.roundToInt
 
 /** Префикс записи о виджете другого приложения: «aw:123». */
 const val APP_WIDGET_PREFIX = "aw:"
 
 private val EditAccent = Color(0xFF0A84FF)
 
-/** Размер виджета по умолчанию. */
-fun defaultWidgetSize(token: String): DesktopWidgetSize = DesktopWidgetSize(
-    weight = when {
-        token == DesktopWidget.APPS.id -> 2f
-        token.startsWith(APP_WIDGET_PREFIX) -> 1.5f
+/** Начальное положение: аккуратная сетка, дальше виджет можно поставить куда угодно. */
+fun defaultWidgetSize(token: String, index: Int = 0, count: Int = 1): DesktopWidgetSize {
+    val columns = if (count <= 1) 1 else 2
+    val slot = 1f / columns
+    val extra = when {
+        token == DesktopWidget.APPS.id -> 1.15f
+        token.startsWith(APP_WIDGET_PREFIX) -> 1.05f
         else -> 1f
-    },
-    height = 1f
-)
+    }
+    return DesktopWidgetSize(
+        weight = (slot * 0.9f * extra).coerceAtMost(0.95f),
+        height = 0.34f,
+        x = (index % columns) * slot + slot * 0.05f,
+        y = (index / columns) * 0.36f + 0.02f
+    )
+}
 
 /**
  * Длинное нажатие, которое только «подслушивается»: касание не перехватывается,
@@ -108,7 +110,7 @@ private fun Modifier.longPressObserver(onLongPress: () -> Unit): Modifier = poin
     }
 }
 
-/** Лёгкое покачивание виджетов в режиме правки. */
+/** Лёгкое покачивание виджетов в режиме правки (не трогаем). */
 @Composable
 private fun rememberWiggle(enabled: Boolean, phase: Int): State<Float> {
     val still = remember { mutableFloatStateOf(0f) }
@@ -127,9 +129,8 @@ private fun rememberWiggle(enabled: Boolean, phase: Int): State<Float> {
 }
 
 /**
- * Рабочий стол (первый и второй устроены одинаково): ряд виджетов — встроенные и виджеты других приложений.
- * Долгое нажатие включает режим правки: виджеты покачиваются, на них появляются стрелки (сдвинуть влево/вправо),
- * угловая стрелка (потянуть — изменить размер), кнопка «убрать» и плитка «добавить».
+ * Рабочий стол: виджеты свободно располагаются в любом месте.
+ * Долгое нажатие включает правку: покачивание, красный крестик и угловая стрелка размера.
  */
 @Composable
 fun HomeScreenPage(
@@ -138,7 +139,6 @@ fun HomeScreenPage(
     editMode: Boolean,
     onEnterEdit: () -> Unit,
     onRemove: (String) -> Unit,
-    onMove: (String, Int) -> Unit,
     onResize: (String, DesktopWidgetSize) -> Unit,
     onAddWidget: () -> Unit,
     weather: WeatherWidgetInfo,
@@ -157,56 +157,36 @@ fun HomeScreenPage(
         .fillMaxSize()
         .padding(start = 28.dp, end = 28.dp, top = topPadding, bottom = bottomPadding)
 
-    // Иконки на рабочем столе не должны сжиматься при изменении общего масштаба интерфейса.
+    // Иконки не зависят от общего масштаба интерфейса.
     val effectiveIconScale = iconScale / uiScale.coerceAtLeast(0.01f)
 
-    // Размеры, которые меняются на глазах во время растягивания.
     var live by remember(sizes) { mutableStateOf(sizes) }
-    var rowWidthPx by remember { mutableIntStateOf(1) }
-    var rowHeightPx by remember { mutableIntStateOf(1) }
-    val cellWidthPx = rowWidthPx / widgets.size.coerceAtLeast(1).toFloat()
 
     Box(modifier = area.longPressObserver { if (!editMode) onEnterEdit() }) {
         ScaledContent(widgetScale) {
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .onSizeChanged {
-                        rowWidthPx = it.width.coerceAtLeast(1)
-                        rowHeightPx = it.height.coerceAtLeast(1)
-                    },
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 widgets.forEachIndexed { index, token ->
-                    val size = live[token] ?: defaultWidgetSize(token)
+                    val size = live[token] ?: defaultWidgetSize(token, index, widgets.size)
                     WidgetCell(
                         token = token,
                         index = index,
-                        last = widgets.size - 1,
                         size = size,
                         editMode = editMode,
-                        cellWidthPx = cellWidthPx,
+                        areaWidth = maxWidth,
+                        areaHeight = maxHeight,
                         onRemove = { onRemove(token) },
-                        onMove = { delta -> onMove(token, delta) },
-                        onResizeDrag = { dx, dy ->
-                            val total = widgets.sumOf { (live[it] ?: defaultWidgetSize(it)).weight.toDouble() }
-                                .toFloat() + 0.5f
-                            val unitPx = rowWidthPx / total
-                            val current = live[token] ?: defaultWidgetSize(token)
-                            live = live + (token to DesktopWidgetSize(
-                                weight = (current.weight + dx / unitPx).coerceIn(0.6f, 4f),
-                                height = (current.height + dy / rowHeightPx).coerceIn(0.35f, 1f)
-                            ))
-                        },
-                        onResizeEnd = { live[token]?.let { onResize(token, it) } }
+                        onChange = { updated ->
+                            live = live + (token to updated)
+                            onResize(token, updated)
+                        }
                     ) {
+                        val fill = Modifier.fillMaxSize()
                         val builtin = DesktopWidget.entries.firstOrNull { it.id == token }
                         val appWidgetId = if (token.startsWith(APP_WIDGET_PREFIX)) {
                             token.removePrefix(APP_WIDGET_PREFIX).toIntOrNull()
                         } else {
                             null
                         }
-                        val fill = Modifier.fillMaxSize()
                         when {
                             builtin == DesktopWidget.DATE -> DateWidget(modifier = fill)
                             builtin == DesktopWidget.POWER -> BatteryWidget(modifier = fill)
@@ -232,8 +212,9 @@ fun HomeScreenPage(
                     AddCell(
                         onClick = onAddWidget,
                         modifier = Modifier
-                            .weight(if (widgets.isEmpty()) 1f else 0.5f)
-                            .fillMaxHeight()
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 8.dp)
+                            .size(width = 92.dp, height = 44.dp)
                     )
                 }
             }
@@ -242,121 +223,87 @@ fun HomeScreenPage(
 }
 
 @Composable
-private fun RowScope.WidgetCell(
+private fun WidgetCell(
     token: String,
     index: Int,
-    last: Int,
     size: DesktopWidgetSize,
     editMode: Boolean,
-    cellWidthPx: Float,
+    areaWidth: Dp,
+    areaHeight: Dp,
     onRemove: () -> Unit,
-    onMove: (Int) -> Unit,
-    onResizeDrag: (Float, Float) -> Unit,
-    onResizeEnd: () -> Unit,
+    onChange: (DesktopWidgetSize) -> Unit,
     content: @Composable () -> Unit
 ) {
     val wiggle = rememberWiggle(editMode, index)
+    var drag by remember { mutableStateOf(Offset.Zero) }
+    val density = LocalDensity.current
+    val widthPx = with(density) { areaWidth.toPx().coerceAtLeast(1f) }
+    val heightPx = with(density) { areaHeight.toPx().coerceAtLeast(1f) }
+
     Box(
         modifier = Modifier
-            .weight(size.weight)
-            .fillMaxHeight()
+            .offset(
+                x = areaWidth * size.x + with(density) { drag.x.toDp() },
+                y = areaHeight * size.y + with(density) { drag.y.toDp() }
+            )
+            .size(width = areaWidth * size.weight, height = areaHeight * size.height)
             .graphicsLayer { rotationZ = wiggle.value }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(size.height)
-        ) {
-            content()
+        content()
 
-            if (editMode) {
-                var dragX by remember { mutableFloatStateOf(0f) }
-                // Перетаскивание пальцем переносит виджет в другое место рабочего стола.
-                Box(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .graphicsLayer { translationX = dragX }
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {}
-                        )
-                        .pointerInput(token) {
-                            detectDragGestures(
-                                onDragEnd = {
-                                    val steps = (dragX / cellWidthPx.coerceAtLeast(1f)).roundToInt()
-                                    if (steps != 0) onMove(steps)
-                                    dragX = 0f
-                                },
-                                onDragCancel = { dragX = 0f }
-                            ) { change, amount ->
-                                change.consume()
-                                dragX += amount.x
+        if (editMode) {
+            // Табы не перехватываются: кнопки и виджеты приложений остаются доступными.
+            Box(
+                modifier = Modifier.matchParentSize().pointerInput(token) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = { drag = Offset.Zero },
+                        onDrag = { change, amount ->
+                            change.consume()
+                            drag += amount
+                        },
+                        onDragEnd = {
+                            val nextX = (size.x + drag.x / widthPx)
+                                .coerceIn(0f, (1f - size.weight).coerceAtLeast(0f))
+                            val nextY = (size.y + drag.y / heightPx)
+                                .coerceIn(0f, (1f - size.height).coerceAtLeast(0f))
+                            drag = Offset.Zero
+                            if (nextX != size.x || nextY != size.y) {
+                                onChange(size.copy(x = nextX, y = nextY))
                             }
-                        }
-                )
+                        },
+                        onDragCancel = { drag = Offset.Zero }
+                    )
+                }
+            )
 
-                EditBadge(
-                    icon = Icons.Rounded.Close,
-                    background = Color(0xFFFF453A),
-                    description = "Убрать виджет",
-                    onClick = onRemove,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = (-6).dp, y = (-6).dp)
-                )
-                if (index > 0) {
-                    EditBadge(
-                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        background = EditAccent,
-                        description = "Сдвинуть влево",
-                        onClick = { onMove(-1) },
-                        modifier = Modifier
-                            .align(Alignment.CenterStart)
-                            .offset(x = (-8).dp)
+            EditBadge(
+                icon = Icons.Rounded.Close,
+                background = Color(0xFFFF453A),
+                description = "Убрать виджет",
+                onClick = onRemove,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(x = (-6).dp, y = (-6).dp)
+            )
+
+            // Только одна стрелка в правом нижнем углу: тянет и вширь, и ввысь.
+            ResizeHandle(
+                onDrag = { dx, dy ->
+                    onChange(
+                        size.copy(
+                            weight = (size.weight + dx / widthPx).coerceIn(
+                                0.15f, (1f - size.x).coerceAtLeast(0.15f)
+                            ),
+                            height = (size.height + dy / heightPx).coerceIn(
+                                0.12f, (1f - size.y).coerceAtLeast(0.12f)
+                            )
+                        )
                     )
-                }
-                if (index < last) {
-                    EditBadge(
-                        icon = Icons.AutoMirrored.Rounded.ArrowForward,
-                        background = EditAccent,
-                        description = "Сдвинуть вправо",
-                        onClick = { onMove(1) },
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .offset(x = 8.dp)
-                    )
-                }
-                // Четыре угла: растягивать можно в любую сторону.
-                ResizeHandle(
-                    onDrag = { dx, dy -> onResizeDrag(-dx, -dy) },
-                    onEnd = onResizeEnd,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .offset(x = (-6).dp, y = (-6).dp)
-                )
-                ResizeHandle(
-                    onDrag = { dx, dy -> onResizeDrag(dx, -dy) },
-                    onEnd = onResizeEnd,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 6.dp, y = (-6).dp)
-                )
-                ResizeHandle(
-                    onDrag = { dx, dy -> onResizeDrag(-dx, dy) },
-                    onEnd = onResizeEnd,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .offset(x = (-6).dp, y = 6.dp)
-                )
-                ResizeHandle(
-                    onDrag = { dx, dy -> onResizeDrag(dx, dy) },
-                    onEnd = onResizeEnd,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .offset(x = 6.dp, y = 6.dp)
-                )
-            }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 6.dp, y = 6.dp)
+            )
         }
     }
 }
@@ -381,15 +328,13 @@ private fun EditBadge(
     }
 }
 
-/** Угловая стрелка: потяните, чтобы изменить ширину и высоту виджета. */
+/** Угловая стрелка: потяните, чтобы изменить размер в любую сторону. */
 @Composable
 private fun ResizeHandle(
     onDrag: (Float, Float) -> Unit,
-    onEnd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentDrag by rememberUpdatedState(onDrag)
-    val currentEnd by rememberUpdatedState(onEnd)
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
@@ -397,10 +342,7 @@ private fun ResizeHandle(
             .clip(CircleShape)
             .background(EditAccent)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragEnd = { currentEnd() },
-                    onDragCancel = { currentEnd() }
-                ) { change, amount ->
+                detectDragGestures { change, amount ->
                     change.consume()
                     currentDrag(amount.x, amount.y)
                 }

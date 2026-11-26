@@ -28,7 +28,7 @@ fun Modifier.glassSurface(
 ): Modifier = this
     .clip(shape)
     .drawBehind {
-        val alpha = ((0.16f * strength).coerceIn(0f, 1f))
+        val alpha = ((0.24f * strength).coerceIn(0f, 1f))
         val paint = androidx.compose.ui.graphics.Paint().apply {
             color = Color.White.copy(alpha = alpha)
             asFrameworkPaint().maskFilter = BlurMaskFilter(20f, BlurMaskFilter.Blur.NORMAL)
@@ -41,9 +41,9 @@ fun Modifier.glassSurface(
     .background(
         Brush.verticalGradient(
             listOf(
-                tint.copy(alpha = (0.22f * strength).coerceIn(0f, 1f)),
-                tint.copy(alpha = (0.08f * strength).coerceIn(0f, 1f)),
-                tint.copy(alpha = (0.15f * strength).coerceIn(0f, 1f))
+                tint.copy(alpha = (0.32f * strength).coerceIn(0f, 1f)),
+                tint.copy(alpha = (0.16f * strength).coerceIn(0f, 1f)),
+                tint.copy(alpha = (0.24f * strength).coerceIn(0f, 1f))
             )
         )
     )
@@ -51,9 +51,9 @@ fun Modifier.glassSurface(
         width = 1.dp,
         brush = Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = (0.45f * strength).coerceIn(0f, 1f)),
-                Color.White.copy(alpha = (0.05f * strength).coerceIn(0f, 1f)),
-                Color.White.copy(alpha = (0.22f * strength).coerceIn(0f, 1f))
+                Color.White.copy(alpha = (0.58f * strength).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = (0.08f * strength).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = (0.30f * strength).coerceIn(0f, 1f))
             )
         ),
         shape = shape

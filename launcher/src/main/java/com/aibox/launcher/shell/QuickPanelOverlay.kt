@@ -139,7 +139,7 @@ fun QuickPanelOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xA6070B16))
+                .background(Color(0xD9070B16))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -152,8 +152,8 @@ fun QuickPanelOverlay(
                     .align(Alignment.Center)
                     .fillMaxWidth(0.66f)
                     .widthIn(max = 480.dp)
-                    .background(Color(0x990F1424))
-                    .glassSurface(RoundedCornerShape(28.dp), strength = 1.1f)
+                    .background(Color(0xE60F1424))
+                    .glassSurface(RoundedCornerShape(28.dp), strength = 1.2f)
                     .padding(16.dp)
             ) {
                 // --- шапка: время, дата, «Готово» ---

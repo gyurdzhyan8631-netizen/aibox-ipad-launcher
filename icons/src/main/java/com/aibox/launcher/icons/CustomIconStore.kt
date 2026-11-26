@@ -57,6 +57,13 @@ object CustomIconStore {
         true
     }.getOrDefault(false)
 
+    /** Применить готовую картинку (например, из пакета иконок). */
+    fun setBitmap(context: Context, packageName: String, bitmap: Bitmap): Boolean = runCatching {
+        save(file(context, packageName), bitmap)
+        changed(packageName)
+        true
+    }.getOrDefault(false)
+
     /** Применить иконку из библиотеки к приложению. */
     fun setFromLibrary(context: Context, packageName: String, source: File): Boolean = runCatching {
         val bitmap = BitmapFactory.decodeFile(source.path) ?: return@runCatching false

@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -691,9 +692,9 @@ internal fun PersonalizationSection(
             icon = Icons.Rounded.Palette,
             iconColor = Color(0xFF5E5CE6),
             title = "Пак иконок",
-            value = "Системные",
-            subtitle = "Свои паки иконок появятся позже",
-            enabled = false
+            value = "Выбрать",
+            subtitle = "Готовые пакеты иконок с устройства",
+            onClick = { onOpenSection(SettingsSection.ICONS) }
         )
         RowDivider()
         SettingsRow(
@@ -797,7 +798,11 @@ internal fun CustomIconsSection(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var library by remember { mutableStateOf(CustomIconStore.library(context)) }
+    var packs by remember { mutableStateOf<List<IconPackInfo>>(emptyList()) }
     var pendingApp by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        packs = withContext(Dispatchers.IO) { IconPackRepository.installed(context) }
+    }
 
     fun refresh() {
         library = CustomIconStore.library(context)
@@ -827,8 +832,51 @@ internal fun CustomIconsSection(
         }
     }
 
-    HintText("Добавьте скачанную картинку в библиотеку и назначьте её приложению. Иконки в доке меняются долгим нажатием и перетаскиванием.")
+    SectionTitle("Пакеты иконок на устройстве")
+    if (packs.isEmpty()) {
+        HintText("Готовые пакеты иконок не найдены. Установите пакет иконок — он появится здесь.")
+    } else {
+        SettingsGroup {
+            packs.forEachIndexed { index, pack ->
+                if (index > 0) RowDivider()
+                SettingsRow(
+                    icon = Icons.Rounded.Apps,
+                    iconColor = Color(0xFFBF5AF2),
+                    title = pack.label,
+                    subtitle = "Применить иконки пакета к установленным приложениям",
+                    onClick = {
+                        onPick(
+                            PickerRequest(
+                                title = pack.label,
+                                options = listOf(
+                                    PickerOption("apply", "Применить иконки пакета"),
+                                    PickerOption("", "Отмена")
+                                ),
+                                selectedKey = "",
+                                onSelect = { key ->
+                                    if (key != "apply") return@PickerRequest
+                                    scope.launch {
+                                        val count = withContext(Dispatchers.IO) {
+                                            IconPackRepository.apply(context, pack, apps)
+                                        }
+                                        Toast.makeText(
+                                            context,
+                                            if (count > 0) "Применено иконок: $count"
+                                            else "В пакете нет иконок для установленных приложений",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            )
+                        )
+                    }
+                )
+            }
+        }
+    }
 
+    SectionTitle("Свои иконки из файла")
+    HintText("Добавьте скачанную картинку в библиотеку и назначьте её приложению.")
     SectionTitle("Библиотека иконок")
     SettingsGroup {
         SettingsRow(

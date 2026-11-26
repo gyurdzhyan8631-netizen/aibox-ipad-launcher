@@ -329,7 +329,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     }
                     settings.removeWidgetToken(pageNumber, token)
                 },
-                onMove = { token, delta -> settings.moveWidget(pageNumber, token, delta) },
                 onResize = { token, size -> settings.setWidgetSize(pageNumber, token, size) },
                 onAddWidget = { showAddWidget = true },
                 weather = weatherInfo,
@@ -466,8 +465,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                         scale = settings.panelScale,
                         uiScale = uiScale,
                         dockWidth = settings.dockWidth,
-                        onDockWidthChange = { settings.updateDockWidth(it) },
-                        onPanelScaleChange = { settings.updatePanelScale(it) }
+                        onDockWidthChange = { settings.updateDockWidth(it) }
                     )
                 }
 
