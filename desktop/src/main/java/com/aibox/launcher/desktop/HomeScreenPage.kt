@@ -146,6 +146,7 @@ fun HomeScreenPage(
     widgetController: AppWidgetController,
     iconScale: Float,
     widgetScale: Float,
+    uiScale: Float = 1f,
     topPadding: Dp,
     bottomPadding: Dp,
     modifier: Modifier = Modifier
@@ -153,6 +154,9 @@ fun HomeScreenPage(
     val area = modifier
         .fillMaxSize()
         .padding(start = 28.dp, end = 28.dp, top = topPadding, bottom = bottomPadding)
+
+    // Иконки на рабочем столе не должны сжиматься при изменении общего масштаба интерфейса.
+    val effectiveIconScale = iconScale / uiScale.coerceAtLeast(0.01f)
 
     // Размеры, которые меняются на глазах во время растягивания.
     var live by remember(sizes) { mutableStateOf(sizes) }
@@ -208,7 +212,7 @@ fun HomeScreenPage(
                             builtin == DesktopWidget.APPS -> AppsWidget(
                                 apps = apps,
                                 onLaunchApp = onLaunchApp,
-                                iconScale = iconScale,
+                                iconScale = effectiveIconScale,
                                 modifier = fill
                             )
                             appWidgetId != null -> HostedAppWidget(

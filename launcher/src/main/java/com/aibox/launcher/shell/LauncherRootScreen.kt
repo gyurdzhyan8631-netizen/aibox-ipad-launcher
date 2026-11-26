@@ -104,12 +104,12 @@ fun LauncherRootScreen() {
         LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
         LocalConfiguration provides scaledConfig
     ) {
-        LauncherRootContent(settings)
+        LauncherRootContent(settings, uiScale)
     }
 }
 
 @Composable
-private fun LauncherRootContent(settings: LauncherSettings) {
+private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val context = LocalContext.current
     val systemActions = remember { SystemActionsHandler(context) }
     val controller = remember(context) { ControlCenterSystemController(context) }
@@ -254,6 +254,7 @@ private fun LauncherRootContent(settings: LauncherSettings) {
     val density = LocalDensity.current
     var headerPx by remember { mutableIntStateOf(0) }
     var bottomPx by remember { mutableIntStateOf(0) }
+    var capsuleWidthPx by remember { mutableIntStateOf(0) }
     val verticalPad = if (compact) 10.dp else 18.dp
     val pageTop = with(density) { headerPx.toDp() } + verticalPad + 8.dp
     val pageBottom = with(density) { bottomPx.toDp() } + verticalPad + 24.dp
@@ -338,6 +339,7 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                 widgetController = widgetController,
                 iconScale = settings.iconScale,
                 widgetScale = settings.widgetScale,
+                uiScale = uiScale,
                 topPadding = pageTop,
                 bottomPadding = pageBottom
             )
@@ -422,6 +424,8 @@ private fun LauncherRootContent(settings: LauncherSettings) {
             ) {
                 SystemNavigationCapsule(
                     scale = settings.panelScale,
+                    uiScale = uiScale,
+                    modifier = Modifier.onSizeChanged { capsuleWidthPx = it.width },
                     onBack = {
                         when {
                             showAddWidget -> showAddWidget = false
@@ -453,8 +457,12 @@ private fun LauncherRootContent(settings: LauncherSettings) {
                     onOpenSettings = { openSettings("personalization") },
                     onReorder = { settings.updateDockOrder(it) },
                     modifier = Modifier.weight(1f),
-                    scale = settings.panelScale
+                    scale = settings.panelScale,
+                    uiScale = uiScale
                 )
+
+                // Капсула слева и такой же отступ справа — док остаётся по центру экрана.
+                Spacer(Modifier.width(with(LocalDensity.current) { capsuleWidthPx.toDp() }))
             }
         }
 

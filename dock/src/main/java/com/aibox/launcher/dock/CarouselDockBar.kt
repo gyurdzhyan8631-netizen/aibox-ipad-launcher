@@ -69,19 +69,26 @@ fun CarouselDockBar(
     onOpenSettings: () -> Unit,
     onReorder: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
-    scale: Float = DockDefaults.DEFAULT_SCALE
+    scale: Float = DockDefaults.DEFAULT_SCALE,
+    uiScale: Float = 1f
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
-    val iconSize = maxOf(panelHeight - 36.dp, 28.dp)
+    // Размер иконки задаётся только panelScale, а не общим uiScale.
+    val iconSize = maxOf(panelHeight - 36.dp, 28.dp) / uiScale.coerceAtLeast(0.01f)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
     var viewportWidthPx by remember { mutableIntStateOf(0) }
     val cellDp = iconSize + 16.dp
-    // Отступы по краям, чтобы первую и последнюю иконки тоже можно было поставить в центр.
-    val sidePadding = with(density) {
-        ((viewportWidthPx / 2f) - (cellDp.toPx() / 2f)).coerceAtLeast(0f).toDp()
+    val spacingDp = 2.dp
+    val viewportWidthDp = with(density) { viewportWidthPx.toDp() }
+    val contentWidth = cellDp * apps.size + spacingDp * (apps.size - 1).coerceAtLeast(0)
+    // Если иконок мало, не раздвигаем их на пол экрана ради «центрирования» первой.
+    val sidePadding = if (contentWidth >= viewportWidthDp) {
+        maxOf(0.dp, (viewportWidthDp - cellDp) / 2f)
+    } else {
+        8.dp
     }
 
     // Порядок иконок, который меняется во время перетаскивания.
@@ -128,7 +135,7 @@ fun CarouselDockBar(
             LazyRow(
                 state = listState,
                 contentPadding = PaddingValues(horizontal = sidePadding),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(spacingDp),
                 verticalAlignment = Alignment.CenterVertically,
                 userScrollEnabled = draggedKey == null,
                 modifier = Modifier.fillMaxSize()

@@ -32,10 +32,12 @@ fun SystemNavigationCapsule(
     onHome: () -> Unit,
     onRecents: () -> Unit,
     modifier: Modifier = Modifier,
-    scale: Float = DockDefaults.DEFAULT_SCALE
+    scale: Float = DockDefaults.DEFAULT_SCALE,
+    uiScale: Float = 1f
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
-    val buttonSize = panelHeight * 0.62f
+    // Иконки не зависят от общего масштаба интерфейса.
+    val buttonSize = panelHeight * 0.62f / uiScale.coerceAtLeast(0.01f)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
     Row(
         horizontalArrangement = Arrangement.spacedBy(panelHeight * 0.14f),

@@ -150,8 +150,8 @@ fun QuickPanelOverlay(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier
                     .align(Alignment.Center)
-                    .fillMaxWidth(0.82f)
-                    .widthIn(max = 640.dp)
+                    .fillMaxWidth(0.66f)
+                    .widthIn(max = 480.dp)
             ) {
                 // --- шапка: время, дата, «Готово» ---
                 Row(
