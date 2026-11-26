@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.ui.glassSurface
-import com.aibox.launcher.widgets.AppWidgetController
 import androidx.compose.material.icons.rounded.Tune
 import kotlinx.coroutines.delay
 import java.time.LocalTime
@@ -103,7 +102,6 @@ fun SettingsScreen(
     settings: LauncherSettings,
     apps: List<InstalledApp>,
     weatherStatus: String,
-    widgetController: AppWidgetController,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -193,9 +191,7 @@ fun SettingsScreen(
                         when (current) {
                             SettingsSection.HOME -> HomeSection(
                                 settings = settings,
-                                weatherStatus = weatherStatus,
-                                widgetController = widgetController,
-                                onPick = { picker = it }
+                                weatherStatus = weatherStatus
                             )
                             SettingsSection.WIFI -> WifiSection()
                             SettingsSection.BLUETOOTH -> BluetoothSection()

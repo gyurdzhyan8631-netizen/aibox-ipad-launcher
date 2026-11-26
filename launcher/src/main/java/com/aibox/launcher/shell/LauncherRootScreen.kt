@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
+import android.provider.AlarmClock
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -31,7 +32,6 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -58,14 +58,12 @@ import androidx.compose.ui.unit.sp
 import com.aibox.launcher.appdrawer.AppDrawerOverlay
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.model.DayPeriod
-import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
-import com.aibox.launcher.widgets.AppWidgetController
 import androidx.compose.ui.unit.Density
-import com.aibox.launcher.desktop.HomeScreenPage
+import com.aibox.launcher.desktop.WidgetBoard
 import com.aibox.launcher.dock.CarouselDockBar
 import com.aibox.launcher.dock.DockDefaults
 import com.aibox.launcher.dock.SystemNavigationCapsule
@@ -75,7 +73,8 @@ import com.aibox.launcher.settings.LauncherSettings
 import com.aibox.launcher.settings.SettingsScreen
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.WallpaperLayer
-import com.aibox.launcher.widgets.WeatherWidgetInfo
+import com.aibox.launcher.widgets.WidgetType
+import com.aibox.launcher.widgets.WidgetWeatherInfo
 import com.aibox.launcher.weather.CityNotFoundException
 import com.aibox.launcher.weather.WeatherRepository
 import com.aibox.launcher.weather.SunCalc
@@ -126,13 +125,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val scope = rememberCoroutineScope()
     val compact = LocalConfiguration.current.screenHeightDp < 480
 
-    // Виджеты других приложений
-    val widgetController = remember { AppWidgetController(context) }
-    DisposableEffect(widgetController) {
-        widgetController.startListening()
-        onDispose { widgetController.stopListening() }
-    }
-
     // --- Погода: офлайн-приоритет (кэш на устройстве + фоновое обновление) ---
     val weatherRepo = remember { WeatherRepository(context) }
     var weather by remember { mutableStateOf(weatherRepo.cached()) }
@@ -177,12 +169,13 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     }
     // В боковом доке участвуют все приложения — порядок по алфавиту и замкнутый круг.
     val carouselApps = remember(apps) { apps.sortedBy { it.label } }
-    val navigationAppLabel = remember(apps, settings.navPackage) {
-        apps.firstOrNull { it.packageName == settings.navPackage }?.label ?: "Навигатор"
-    }
-    val videoAppLabel = remember(apps, settings.videoPackage) {
-        apps.firstOrNull { it.packageName == settings.videoPackage }?.label ?: "YouTube"
-    }
+
+    fun appPackage(vararg hints: String): String? = apps.firstOrNull { app ->
+        hints.any { hint ->
+            app.label.contains(hint, ignoreCase = true) ||
+                app.packageName.contains(hint, ignoreCase = true)
+        }
+    }?.packageName
 
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -223,6 +216,35 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             runCatching { context.startActivity(url) }
         }
     }
+    val openCalendar: () -> Unit = {
+        val pkg = appPackage("calendar", "календар")
+        if (pkg == null || !launchPackage(pkg)) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(intent) }
+        }
+    }
+    val openClock: () -> Unit = {
+        val pkg = appPackage("clock", "часы")
+        if (pkg == null || !launchPackage(pkg)) {
+            val intent = Intent(AlarmClock.ACTION_SHOW_ALARMS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(intent) }
+        }
+    }
+    val openNotes: () -> Unit = {
+        val pkg = appPackage("notes", "note", "заметк")
+        if (pkg != null) launchPackage(pkg)
+    }
+    val openPhotos: () -> Unit = {
+        val pkg = appPackage("photos", "gallery", "галерея", "фото")
+        if (pkg == null || !launchPackage(pkg)) {
+            val intent = Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_APP_GALLERY)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(intent) }
+        }
+    }
     val openPowerSettings: () -> Unit = {
         val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -240,7 +262,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     var showAppDrawer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
-    var showAddWidget by remember { mutableStateOf(false) }
+    var showWidgetGallery by remember { mutableStateOf(false) }
     var settingsSection by remember { mutableStateOf("personalization") }
 
     val openSettings: (String) -> Unit = { sectionId ->
@@ -249,16 +271,16 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         showAppDrawer = false
         showSettings = true
     }
-    val openWidget: (DesktopWidget) -> Unit = { widget ->
+    val openWidget: (WidgetType) -> Unit = { widget ->
         when (widget) {
-            DesktopWidget.DATE -> openSettings("personalization")
-            DesktopWidget.POWER -> openPowerSettings()
-            DesktopWidget.NETWORK -> openNetworkSettings()
-            DesktopWidget.WEATHER -> openWeather()
-            DesktopWidget.MUSIC -> openMusic()
-            DesktopWidget.NAVIGATION -> openNavigation()
-            DesktopWidget.VIDEO -> openVideo()
-            DesktopWidget.APPS -> showAppDrawer = true
+            WidgetType.WEATHER -> openWeather()
+            WidgetType.MUSIC -> openMusic()
+            WidgetType.CALENDAR -> openCalendar()
+            WidgetType.CLOCK -> openClock()
+            WidgetType.BATTERY -> openPowerSettings()
+            WidgetType.NOTES -> openNotes()
+            WidgetType.PHOTOS -> openPhotos()
+            WidgetType.SMART_STACK -> openWeather()
         }
     }
 
@@ -289,19 +311,38 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         DayPeriod.NIGHT -> "ДОБРОЙ НОЧИ"
     }
 
+    fun timeLabel(minutes: Int): String =
+        String.format(Locale.getDefault(), "%02d:%02d", minutes / 60, minutes % 60)
+
+    val sunriseText = sunTimes?.first?.let(::timeLabel) ?: "06:30"
+    val sunsetText = sunTimes?.second?.let(::timeLabel) ?: "18:30"
+
     val weatherInfo = when {
-        city.isBlank() -> WeatherWidgetInfo(condition = "Укажите город", place = "Настройки → Главная")
-        shownWeather != null -> WeatherWidgetInfo(
+        city.isBlank() -> WidgetWeatherInfo(
+            condition = "Укажите город",
+            place = "Настройки → Главная",
+            sunrise = sunriseText,
+            sunset = sunsetText
+        )
+        shownWeather != null -> WidgetWeatherInfo(
             temp = formatTemp(shownWeather.tempC),
             condition = shownWeather.condition.titleRu(),
             place = shownWeather.cityName,
+            isDay = now.hour in 6..18,
+            sunrise = sunriseText,
+            sunset = sunsetText,
             note = when {
                 errorText != null -> errorText
                 isStale(shownWeather.fetchedAtMillis, nowMillis) -> "нет связи"
                 else -> "обновлено ${ageText(shownWeather.fetchedAtMillis, nowMillis)}"
             }
         )
-        else -> WeatherWidgetInfo(condition = "Загрузка…", place = city)
+        else -> WidgetWeatherInfo(
+            condition = "Загрузка…",
+            place = city,
+            sunrise = sunriseText,
+            sunset = sunsetText
+        )
     }
 
     // Высоты шапки и нижней панели: рабочие столы занимают весь экран, а виджеты не залезают под панели.
@@ -367,34 +408,20 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             val pageNumber = page + 1
-            HomeScreenPage(
-                widgets = if (page == 0) settings.page1Widgets else settings.page2Widgets,
-                sizes = settings.sizesFor(pageNumber),
+            WidgetBoard(
+                items = settings.widgetBoard(pageNumber),
                 editMode = editMode,
+                weather = weatherInfo,
                 onEnterEdit = {
                     showQuickPanel = false
                     showAppDrawer = false
                     editMode = true
                 },
-                onRemove = { token ->
-                    if (token.startsWith("aw:")) {
-                        token.removePrefix("aw:").toIntOrNull()?.let { widgetController.delete(it) }
-                    }
-                    settings.removeWidgetToken(pageNumber, token)
-                },
-                onResize = { token, size -> settings.setWidgetSize(pageNumber, token, size) },
-                onAddWidget = { showAddWidget = true },
-                weather = weatherInfo,
-                apps = apps,
-                onLaunchApp = launchApp,
-                onOpenMusic = openMusic,
+                onMove = { id, column, row -> settings.moveWidget(pageNumber, id, column, row) },
+                onResize = { id, size -> settings.resizeWidget(pageNumber, id, size) },
+                onRemove = { id -> settings.removeWidget(pageNumber, id) },
+                onAdd = { showWidgetGallery = true },
                 onOpenWidget = openWidget,
-                navigationAppLabel = navigationAppLabel,
-                videoAppLabel = videoAppLabel,
-                widgetController = widgetController,
-                iconScale = settings.iconScale,
-                widgetScale = settings.widgetScale,
-                uiScale = uiScale,
                 topPadding = pageTop,
                 bottomPadding = pageBottom
             )
@@ -495,7 +522,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     uiScale = uiScale,
                     onBack = {
                         when {
-                            showAddWidget -> showAddWidget = false
+                            showWidgetGallery -> showWidgetGallery = false
                             editMode -> editMode = false
                             showSettings -> showSettings = false
                             showAppDrawer -> showAppDrawer = false
@@ -505,7 +532,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     },
                     onHome = {
                         editMode = false
-                        showAddWidget = false
+                        showWidgetGallery = false
                         showSettings = false
                         showAppDrawer = false
                         showQuickPanel = false
@@ -554,16 +581,13 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 .align(Alignment.TopCenter)
                 .padding(top = verticalPad + 6.dp)
         )
-        val currentPageTokens = if (pagerState.currentPage == 0) settings.page1Widgets else settings.page2Widgets
-        AddWidgetSheet(
-            visible = showAddWidget,
-            available = DesktopWidget.entries.filter { it.id !in currentPageTokens },
-            onAdd = { widget -> settings.setBuiltinWidget(pagerState.currentPage + 1, widget, true) },
-            onOpenAppWidgets = {
-                editMode = false
-                openSettings("home")
+        WidgetGallerySheet(
+            visible = showWidgetGallery,
+            onAdd = { type, size ->
+                settings.addWidget(pagerState.currentPage + 1, type, size)
+                showWidgetGallery = false
             },
-            onDismiss = { showAddWidget = false }
+            onDismiss = { showWidgetGallery = false }
         )
 
         // 7. Настройки (как в iPad)
@@ -573,7 +597,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             settings = settings,
             apps = apps,
             weatherStatus = weatherStatus,
-            widgetController = widgetController,
             onClose = { showSettings = false }
         )
     }

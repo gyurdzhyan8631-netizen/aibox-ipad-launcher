@@ -23,54 +23,6 @@ enum class WeatherCondition {
     CLEAR, CLOUDY, OVERCAST, RAIN, HEAVY_RAIN, SNOW, THUNDERSTORM, FOG, WIND
 }
 
-enum class WidgetSize(val title: String) {
-    SMALL("Small"),
-    MEDIUM("Medium"),
-    LARGE("Large"),
-    CUSTOM("Custom")
-}
-
-enum class ElementType {
-    APP_ICON,
-    FOLDER,
-    WIDGET_CLOCK,
-    WIDGET_DATE,
-    WIDGET_WEATHER,
-    WIDGET_FORECAST,
-    WIDGET_MUSIC,
-    WIDGET_NAV,
-    WIDGET_MAP,
-    WIDGET_SPEED,
-    WIDGET_TRIP,
-    WIDGET_VPN,
-    WIDGET_WIFI,
-    WIDGET_SYSTEM,
-    WIDGET_BATTERY,
-    WIDGET_CALENDAR,
-    CUSTOM_LOGO,
-    CUSTOM_WIDGET
-}
-
-data class DesktopElement(
-    val id: String,
-    val screenIndex: Int, // 0 = Home Screen 1, 1 = Home Screen 2
-    val title: String,
-    val type: ElementType,
-    val xFraction: Float,
-    val yFraction: Float,
-    val widthDp: Float,
-    val heightDp: Float,
-    val alpha: Float = 0.85f,
-    val cornerRadiusDp: Float = 26f,
-    val shadowElevationDp: Float = 8f,
-    val accentHex: Long? = null,
-    val widgetSize: WidgetSize = WidgetSize.MEDIUM,
-    val packageName: String? = null,
-    val customImageUri: String? = null,
-    val folderItems: List<String> = emptyList(),
-    val isHidden: Boolean = false
-)
-
 data class DockAppItem(
     val id: String,
     val packageName: String,

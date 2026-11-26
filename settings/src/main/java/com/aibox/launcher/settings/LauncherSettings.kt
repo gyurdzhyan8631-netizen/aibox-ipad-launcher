@@ -5,12 +5,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
-import com.aibox.launcher.core.model.DesktopWidgetSize
 import com.aibox.launcher.core.ui.LauncherFonts
-import java.io.File
+import com.aibox.launcher.widgets.WidgetItem
+import com.aibox.launcher.widgets.WidgetSizeClass
+import com.aibox.launcher.widgets.WidgetType
+import com.aibox.launcher.widgets.defaultWidgetBoard
+import com.aibox.launcher.widgets.findFreeWidgetSpot
+import java.util.UUID
 
 enum class ClockStyle(val id: String, val title: String) {
     BOLD("bold", "Жирный"),
@@ -30,6 +33,18 @@ enum class ClockStyle(val id: String, val title: String) {
  */
 class LauncherSettings(private val prefs: SharedPreferences) {
 
+    init {
+        // Старая система виджетов больше не используется — чистим её ключи при первом запуске.
+        if (prefs.contains(K_P1) || prefs.contains(K_P2) || prefs.contains(K_SIZES)) {
+            prefs.edit()
+                .remove(K_P1)
+                .remove(K_P2)
+                .remove(K_SIZES)
+                .remove(K_WIDGET)
+                .apply()
+        }
+    }
+
     var panelScale by mutableFloatStateOf(prefs.getFloat(K_PANEL, 1f).coerceIn(0.75f, 1.35f))
         private set
     var iconScale by mutableFloatStateOf(prefs.getFloat(K_ICON, 1f).coerceIn(0.7f, 1.5f))
@@ -41,8 +56,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var uiScale by mutableFloatStateOf(prefs.getFloat(K_UI, DEFAULT_UI_SCALE).coerceIn(0.6f, 1.3f))
         private set
     var statusScale by mutableFloatStateOf(prefs.getFloat(K_STATUS, 1f).coerceIn(0.6f, 1.3f))
-        private set
-    var widgetScale by mutableFloatStateOf(prefs.getFloat(K_WIDGET, 1f).coerceIn(0.6f, 1f))
         private set
     var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
         private set
@@ -71,20 +84,18 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var city by mutableStateOf(prefs.getString(K_CITY, "") ?: "")
         private set
 
-    /** Записи рабочего стола: id встроенного виджета («date») или виджет другого приложения («aw:123»). */
-    var page1Widgets by mutableStateOf(parseTokens(prefs.getString(K_P1, "date,power,network")))
+    /** Новая iPad-система: позиции виджетов хранятся в ячейках сетки 6×10. */
+    var widgetBoard1 by mutableStateOf(
+        parseBoard(prefs.getString(K_BOARD1, null), defaultWidgetBoard(1))
+    )
         private set
-    var page2Widgets by mutableStateOf(
-        parseTokens(prefs.getString(K_P2, "weather,music,navigation,video"))
+    var widgetBoard2 by mutableStateOf(
+        parseBoard(prefs.getString(K_BOARD2, null), defaultWidgetBoard(2))
     )
         private set
 
     /** Дождь и снег в «Живом небе» (самая «тяжёлая» часть анимации). */
     var skyPrecipitation by mutableStateOf(prefs.getBoolean(K_SKY_PRECIP, true))
-        private set
-
-    /** Размеры виджетов: ключ «страница:запись», например «1:date». */
-    var widgetSizes by mutableStateOf(parseSizes(prefs.getString(K_SIZES, "")))
         private set
 
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
@@ -152,63 +163,68 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_CITY, city).apply()
     }
 
-    fun widgetsOf(page: Int): List<String> = if (page == 1) page1Widgets else page2Widgets
+    fun widgetBoard(page: Int): List<WidgetItem> = if (page == 1) widgetBoard1 else widgetBoard2
 
-    private fun storeWidgets(page: Int, tokens: List<String>) {
-        val csv = tokens.joinToString(",")
+    private fun storeBoard(page: Int, items: List<WidgetItem>) {
+        val encoded = encodeBoard(items)
         if (page == 1) {
-            page1Widgets = tokens
-            prefs.edit().putString(K_P1, csv).apply()
+            widgetBoard1 = items
+            prefs.edit().putString(K_BOARD1, encoded).apply()
         } else {
-            page2Widgets = tokens
-            prefs.edit().putString(K_P2, csv).apply()
+            widgetBoard2 = items
+            prefs.edit().putString(K_BOARD2, encoded).apply()
         }
     }
 
-    /** Включает или выключает встроенный виджет. Новый добавляется в конец ряда. */
-    fun setBuiltinWidget(page: Int, widget: DesktopWidget, enabled: Boolean) {
-        val current = widgetsOf(page)
-        val updated = when {
-            enabled && widget.id !in current -> current + widget.id
-            !enabled -> current.filter { it != widget.id }
-            else -> current
-        }
-        storeWidgets(page, updated)
+    fun addWidget(page: Int, type: WidgetType, size: WidgetSizeClass = type.defaultSize): WidgetItem {
+        val current = widgetBoard(page)
+        val (column, row) = findFreeWidgetSpot(current, null, size, 0, 0)
+        val item = WidgetItem(
+            id = "w-${UUID.randomUUID()}",
+            type = type,
+            size = size,
+            column = column,
+            row = row
+        )
+        storeBoard(page, current + item)
+        return item
     }
 
-    fun addAppWidget(page: Int, appWidgetId: Int) {
-        storeWidgets(page, widgetsOf(page) + "aw:$appWidgetId")
+    fun removeWidget(page: Int, id: String) {
+        storeBoard(page, widgetBoard(page).filter { it.id != id })
     }
 
-    fun removeWidgetToken(page: Int, token: String) {
-        storeWidgets(page, widgetsOf(page).filter { it != token })
+    fun moveWidget(page: Int, id: String, column: Int, row: Int) {
+        val current = widgetBoard(page)
+        val item = current.firstOrNull { it.id == id } ?: return
+        val (freeColumn, freeRow) = findFreeWidgetSpot(current, id, item.size, column, row)
+        storeBoard(
+            page,
+            current.map {
+                if (it.id == id) it.copy(column = freeColumn, row = freeRow) else it
+            }
+        )
     }
 
-    fun sizesFor(page: Int): Map<String, DesktopWidgetSize> =
-        widgetSizes
-            .filterKeys { it.startsWith("$page:") }
-            .mapKeys { it.key.substringAfter(':') }
-
-    fun setWidgetSize(page: Int, token: String, size: DesktopWidgetSize) {
-        widgetSizes = widgetSizes + ("$page:$token" to size)
-        prefs.edit()
-            .putString(
-                K_SIZES,
-                widgetSizes.entries.joinToString(";") {
-                    "${it.key}=${it.value.weight},${it.value.height},${it.value.x},${it.value.y}"
+    fun resizeWidget(page: Int, id: String, size: WidgetSizeClass) {
+        val current = widgetBoard(page)
+        val item = current.firstOrNull { it.id == id } ?: return
+        val (freeColumn, freeRow) = findFreeWidgetSpot(current, id, size, item.column, item.row)
+        storeBoard(
+            page,
+            current.map {
+                if (it.id == id) {
+                    it.copy(size = size, column = freeColumn, row = freeRow)
+                } else {
+                    it
                 }
-            )
-            .apply()
+            }
+        )
     }
 
-    /** Сдвигает виджет на [delta] позиций (−1 — влево, +1 — вправо). */
-    fun moveWidget(page: Int, token: String, delta: Int) {
-        val list = widgetsOf(page).toMutableList()
-        val from = list.indexOf(token)
-        val to = from + delta
-        if (from < 0 || to < 0 || to >= list.size) return
-        list.add(to, list.removeAt(from))
-        storeWidgets(page, list)
+    fun resetWidgetBoards() {
+        storeBoard(1, defaultWidgetBoard(1))
+        storeBoard(2, defaultWidgetBoard(2))
     }
 
     fun updateUiScale(value: Float) {
@@ -221,11 +237,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_STATUS, statusScale).apply()
     }
 
-    fun updateWidgetScale(value: Float) {
-        widgetScale = value.coerceIn(0.6f, 1f)
-        prefs.edit().putFloat(K_WIDGET, widgetScale).apply()
-    }
-
     fun updateQuickScale(value: Float) {
         quickScale = value.coerceIn(0.6f, 1.3f)
         prefs.edit().putFloat(K_QUICK, quickScale).apply()
@@ -235,7 +246,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun resetSizes() {
         updateUiScale(DEFAULT_UI_SCALE)
         updateStatusScale(1f)
-        updateWidgetScale(1f)
         updateQuickScale(1f)
         updatePanelScale(1f)
         updateIconScale(1f)
@@ -258,28 +268,40 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         if (wallpaperPath == path) selectWallpaper(WallpaperType.THEME)
     }
 
-    private fun parseSizes(raw: String?): Map<String, DesktopWidgetSize> =
-        (raw ?: "").split(';').mapNotNull { entry ->
-            val parts = entry.split('=')
-            if (parts.size != 2) return@mapNotNull null
-            val values = parts[1].split(',')
-            val weight = values.getOrNull(0)?.toFloatOrNull()
-            val height = values.getOrNull(1)?.toFloatOrNull()
-            val x = values.getOrNull(2)?.toFloatOrNull() ?: 0f
-            val y = values.getOrNull(3)?.toFloatOrNull() ?: 0f
-            if (weight == null || height == null) null else parts[0] to DesktopWidgetSize(weight, height, x, y)
-        }.toMap()
+    private fun encodeBoard(items: List<WidgetItem>): String =
+        items.joinToString(";") { item ->
+            listOf(
+                item.id,
+                item.type.id,
+                item.size.id,
+                item.column.toString(),
+                item.row.toString()
+            ).joinToString(",")
+        }
 
-    private fun parseTokens(csv: String?): List<String> =
-        (csv ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
+    private fun parseBoard(raw: String?, fallback: List<WidgetItem>): List<WidgetItem> {
+        if (raw.isNullOrBlank()) return fallback
+        val parsed = raw.split(';').mapNotNull { entry ->
+            val parts = entry.split(',')
+            if (parts.size != 5) return@mapNotNull null
+            val column = parts[3].toIntOrNull() ?: return@mapNotNull null
+            val row = parts[4].toIntOrNull() ?: return@mapNotNull null
+            WidgetItem(
+                id = parts[0],
+                type = WidgetType.fromId(parts[1]),
+                size = WidgetSizeClass.fromId(parts[2]),
+                column = column,
+                row = row
+            )
+        }
+        return parsed.ifEmpty { fallback }
+    }
 
     private companion object {
         const val DEFAULT_UI_SCALE = 0.85f
-        const val K_SIZES = "widget_sizes"
         const val K_SKY_PRECIP = "sky_precip"
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
-        const val K_WIDGET = "widget_scale"
         const val K_QUICK = "quick_scale"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
@@ -294,9 +316,15 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_WEATHER = "weather_package"
         const val K_VIDEO = "video_package"
         const val K_CITY = "weather_city"
-        const val K_P1 = "widgets_page1"
-        const val K_P2 = "widgets_page2"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
+        const val K_BOARD1 = "widget_board_page1"
+        const val K_BOARD2 = "widget_board_page2"
+
+        // Удаляемые ключи старой системы виджетов.
+        const val K_P1 = "widgets_page1"
+        const val K_P2 = "widgets_page2"
+        const val K_SIZES = "widget_sizes"
+        const val K_WIDGET = "widget_scale"
     }
 }

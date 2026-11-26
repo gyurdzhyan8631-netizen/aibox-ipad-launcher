@@ -1,13 +1,9 @@
 package com.aibox.launcher.settings
 
 import android.app.Activity
-import android.appwidget.AppWidgetManager
 import android.graphics.BitmapFactory
-import android.content.ComponentName
 import android.content.Intent
-import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Tune
-import com.aibox.launcher.widgets.AppWidgetController
 import com.aibox.launcher.core.ui.LauncherFonts
 import android.content.Context
 import android.media.AudioManager
@@ -96,7 +92,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.model.WallpaperTheme
@@ -154,11 +149,9 @@ private fun rememberNetSummary(context: Context): State<NetSummary> =
 @Composable
 internal fun HomeSection(
     settings: LauncherSettings,
-    weatherStatus: String,
-    widgetController: AppWidgetController,
-    onPick: (PickerRequest) -> Unit
+    weatherStatus: String
 ) {
-    SectionTitle("Погода для обоев")
+    SectionTitle("Город для погоды и обоев")
     SettingsGroup {
         var draft by remember(settings.city) { mutableStateOf(settings.city) }
         Column(
@@ -198,170 +191,26 @@ internal fun HomeSection(
         }
     }
 
-    WidgetsGroup(settings, page = 1, title = "Рабочий стол 1", controller = widgetController, onPick = onPick)
-    WidgetsGroup(settings, page = 2, title = "Рабочий стол 2", controller = widgetController, onPick = onPick)
-    HintText("Оба рабочих стола — полноценные: на каждом свой набор виджетов, включая виджеты других приложений и виджет «Все приложения».")
-}
-
-private fun widgetIcon(widget: DesktopWidget) = when (widget) {
-    DesktopWidget.DATE -> Icons.Rounded.DateRange
-    DesktopWidget.POWER -> Icons.Rounded.BatteryFull
-    DesktopWidget.NETWORK -> Icons.Rounded.Wifi
-    DesktopWidget.WEATHER -> Icons.Rounded.Cloud
-    DesktopWidget.MUSIC -> Icons.Rounded.MusicNote
-    DesktopWidget.NAVIGATION -> Icons.Rounded.Navigation
-    DesktopWidget.VIDEO -> Icons.Rounded.Videocam
-    DesktopWidget.APPS -> Icons.Rounded.Apps
-}
-
-private fun widgetColor(widget: DesktopWidget) = when (widget) {
-    DesktopWidget.DATE -> Color(0xFFFF9F0A)
-    DesktopWidget.POWER -> Color(0xFF30D158)
-    DesktopWidget.NETWORK -> Color(0xFF0A84FF)
-    DesktopWidget.WEATHER -> Color(0xFF64D2FF)
-    DesktopWidget.MUSIC -> Color(0xFFFF375F)
-    DesktopWidget.NAVIGATION -> Color(0xFF30D158)
-    DesktopWidget.VIDEO -> Color(0xFFFF453A)
-    DesktopWidget.APPS -> Color(0xFFBF5AF2)
-}
-
-@Composable
-private fun WidgetsGroup(
-    settings: LauncherSettings,
-    page: Int,
-    title: String,
-    controller: AppWidgetController,
-    onPick: (PickerRequest) -> Unit
-) {
-    val context = LocalContext.current
-    val tokens = if (page == 1) settings.page1Widgets else settings.page2Widgets
-    var pendingId by remember { mutableIntStateOf(-1) }
-
-    fun finishAdd(id: Int) {
-        settings.addAppWidget(page, id)
-        pendingId = -1
-    }
-
-    fun cancelAdd() {
-        if (pendingId != -1) controller.delete(pendingId)
-        pendingId = -1
-    }
-
-    val configureLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val id = pendingId
-        if (id != -1) {
-            if (result.resultCode == Activity.RESULT_OK) finishAdd(id) else cancelAdd()
-        }
-    }
-
-    fun proceed(id: Int) {
-        val configure = controller.info(id)?.configure
-        if (configure == null) {
-            finishAdd(id)
-        } else {
-            val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE)
-                .setComponent(configure)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-            runCatching { configureLauncher.launch(intent) }.onFailure { finishAdd(id) }
-        }
-    }
-
-    val bindLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val id = pendingId
-        if (id != -1) {
-            if (result.resultCode == Activity.RESULT_OK) proceed(id) else cancelAdd()
-        }
-    }
-
-    fun startAdd(providerFlat: String) {
-        val provider = ComponentName.unflattenFromString(providerFlat) ?: return
-        val id = controller.allocateId()
-        pendingId = id
-        if (controller.bindIfAllowed(id, provider)) {
-            proceed(id)
-        } else {
-            val bind = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, provider)
-            runCatching { bindLauncher.launch(bind) }.onFailure {
-                cancelAdd()
-                Toast.makeText(context, "Не удалось добавить виджет", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-    SectionTitle(title)
+    SectionTitle("Рабочие столы")
     SettingsGroup {
-        DesktopWidget.entries.forEachIndexed { index, widget ->
-            if (index > 0) RowDivider()
-            SwitchRow(
-                icon = widgetIcon(widget),
-                iconColor = widgetColor(widget),
-                title = widget.title,
-                checked = widget.id in tokens,
-                onCheckedChange = { settings.setBuiltinWidget(page, widget, it) }
-            )
-        }
-
-        tokens.filter { it.startsWith("aw:") }.forEach { token ->
-            RowDivider()
-            val id = token.removePrefix("aw:").toIntOrNull()
-            val info = id?.let { controller.info(it) }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                IconBadge(Icons.Rounded.Widgets, Color(0xFF5E5CE6))
-                Spacer(Modifier.width(14.dp))
-                Text(
-                    text = info?.let { controller.title(it) } ?: "Виджет приложения",
-                    color = Color.White,
-                    fontSize = 17.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Icon(
-                    imageVector = Icons.Rounded.Delete,
-                    contentDescription = "Убрать виджет",
-                    tint = Color(0xFFFF453A),
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable {
-                            if (id != null) controller.delete(id)
-                            settings.removeWidgetToken(page, token)
-                        }
-                        .padding(6.dp)
-                )
-            }
-        }
-
-        RowDivider()
         SettingsRow(
             icon = Icons.Rounded.Widgets,
             iconColor = SettingsColors.accent,
-            title = "Добавить виджет из приложений",
-            subtitle = "Часы, погода, плееры и другие виджеты Android",
-            onClick = {
-                val options = controller.providers()
-                    .sortedBy { controller.title(it).lowercase() }
-                    .map { PickerOption(it.provider.flattenToString(), controller.title(it)) }
-                if (options.isEmpty()) {
-                    Toast.makeText(context, "На устройстве нет виджетов", Toast.LENGTH_SHORT).show()
-                } else {
-                    onPick(
-                        PickerRequest(
-                            title = "Выберите виджет",
-                            options = options,
-                            selectedKey = "",
-                            onSelect = { startAdd(it) }
-                        )
-                    )
-                }
-            }
+            title = "Система виджетов",
+            value = "iPad",
+            subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4, умный стек",
+            showChevron = false
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Refresh,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Сбросить рабочие столы",
+            subtitle = "Вернуть стандартный набор виджетов",
+            onClick = { settings.resetWidgetBoards() }
         )
     }
+    HintText("Добавляйте виджеты кнопкой «+» в режиме правки. Перетаскивайте пальцем, а угловую стрелку используйте для смены размера.")
 }
 
 // ---------------------------------------------------------------- Wi-Fi / Bluetooth
@@ -1702,14 +1551,6 @@ internal fun SizesSection(settings: LauncherSettings) {
             value = settings.statusScale,
             valueRange = 0.6f..1.3f,
             onValueChange = { settings.updateStatusScale(it) }
-        )
-        RowDivider()
-        SliderRow(
-            title = "Виджеты",
-            valueText = percent(settings.widgetScale),
-            value = settings.widgetScale,
-            valueRange = 0.6f..1f,
-            onValueChange = { settings.updateWidgetScale(it) }
         )
         RowDivider()
         SliderRow(
