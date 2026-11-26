@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Wifi
@@ -80,6 +81,7 @@ enum class SettingsSection(
     SOUND("sound", "Звук", Icons.Rounded.VolumeUp, Color(0xFFFF375F)),
     PERSONALIZATION("personalization", "Персонализация", Icons.Rounded.Palette, Color(0xFF5E5CE6)),
     SIZES("sizes", "Размеры", Icons.Rounded.Tune, Color(0xFF64D2FF)),
+    FONTS("fonts", "Шрифты", Icons.Rounded.TextFields, Color(0xFF64D2FF)),
     WALLPAPERS("wallpapers", "Обои", Icons.Rounded.Image, Color(0xFF30B0C7)),
     ICONS("icons", "Сторонние иконки", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
     APPS("apps", "Приложения", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
@@ -206,6 +208,7 @@ fun SettingsScreen(
                                 onOpenSection = { section = it }
                             )
                             SettingsSection.SIZES -> SizesSection(settings)
+                            SettingsSection.FONTS -> FontSection(settings, onPick = { picker = it })
                             SettingsSection.WALLPAPERS -> WallpaperSection(settings, onOpenSection = { section = it })
                             SettingsSection.ICONS -> CustomIconsSection(settings, apps, onPick = { picker = it })
                             SettingsSection.APPS -> AppsSection(settings, apps, onPick = { picker = it })

@@ -44,7 +44,11 @@ private fun sendMediaKey(audio: AudioManager?, keyCode: Int) {
 
 /** Виджет музыки: предыдущий / пауза / следующий. Нажатие на заголовок открывает плеер. */
 @Composable
-fun MusicWidget(onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
+fun MusicWidget(
+    onOpenPlayer: () -> Unit,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
     val context = LocalContext.current
     val tokens = LocalLauncherTokens.current
     val audio = remember { context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager }
@@ -57,9 +61,9 @@ fun MusicWidget(onOpenPlayer: () -> Unit, modifier: Modifier = Modifier) {
         }
     }
 
-    GlassCard(modifier = modifier) {
+    GlassCard(modifier = modifier.clickable(onClick = onClick ?: onOpenPlayer)) {
         Column(verticalArrangement = Arrangement.SpaceBetween) {
-            Column(modifier = Modifier.clickable(onClick = onOpenPlayer)) {
+            Column {
                 Text(
                     text = "Музыка",
                     color = tokens.accent,

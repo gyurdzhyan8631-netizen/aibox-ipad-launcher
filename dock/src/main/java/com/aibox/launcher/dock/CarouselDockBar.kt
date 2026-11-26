@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material3.Icon
@@ -35,7 +34,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.aibox.launcher.core.model.InstalledApp
-import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconPreview
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -60,9 +58,7 @@ fun CarouselDockBar(
     val density = LocalDensity.current
     val safeUiScale = uiScale.coerceAtLeast(0.01f)
     // Высота дока равна высоте капсулы горячих клавиш.
-    val panelHeight = DockDefaults.panelHeight(scale)
     val iconSize = DockDefaults.iconSize(scale, uiScale)
-    val shape = RoundedCornerShape(panelHeight * 0.38f)
 
     val stepPx = with(density) { (iconSize + (6.dp / safeUiScale)).toPx() }
     val forwardPx = with(density) { (8.dp / safeUiScale).toPx() }
@@ -83,9 +79,7 @@ fun CarouselDockBar(
         modifier = modifier
             .fillMaxSize()
             .onSizeChanged { viewportPx = it.width.coerceAtLeast(1) }
-            .clip(shape)
-            .background(Color(0x40080A10))
-            .glassSurface(shape)
+            // Без обрезки и стеклянной подложки: увеличенная иконка не режется о края дока.
             .pointerInput(apps.size) {
                 detectDragGestures(
                     onDragEnd = {
@@ -119,7 +113,7 @@ fun CarouselDockBar(
                 .padding(start = 10.dp / safeUiScale)
                 .size(iconSize)
                 .clip(CircleShape)
-                .background(Color(0x33FFFFFF))
+                .background(Color(0x660A84FF))
                 .clickable(onClick = onOpenDrawer)
         ) {
             Icon(

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -48,6 +50,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +61,7 @@ import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WeatherCondition
+import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
 import com.aibox.launcher.widgets.AppWidgetController
 import androidx.compose.ui.unit.Density
@@ -105,7 +110,10 @@ fun LauncherRootScreen() {
         LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
         LocalConfiguration provides scaledConfig
     ) {
-        LauncherRootContent(settings, uiScale)
+        // Шрифт интерфейса применяется ко всему лаунчеру, включая настройки.
+        ProvideTextStyle(TextStyle(fontFamily = LauncherFonts.family(settings.interfaceFontId))) {
+            LauncherRootContent(settings, uiScale)
+        }
     }
 }
 
@@ -193,6 +201,32 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             runCatching { context.startActivity(geo) }
         }
     }
+    val openWeather: () -> Unit = {
+        val chosen = settings.weatherPackage
+        if (chosen.isBlank() || !launchPackage(chosen)) {
+            val url = Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.google.com"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(url) }
+        }
+    }
+    val openVideo: () -> Unit = {
+        val chosen = settings.videoPackage
+        if (chosen.isBlank() || !launchPackage(chosen)) {
+            val url = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            runCatching { context.startActivity(url) }
+        }
+    }
+    val openPowerSettings: () -> Unit = {
+        val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+    }
+    val openNetworkSettings: () -> Unit = {
+        val intent = Intent(Settings.ACTION_WIFI_SETTINGS)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+    }
 
     // --- Состояние экрана ---
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -208,6 +242,18 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         showQuickPanel = false
         showAppDrawer = false
         showSettings = true
+    }
+    val openWidget: (DesktopWidget) -> Unit = { widget ->
+        when (widget) {
+            DesktopWidget.DATE -> openSettings("personalization")
+            DesktopWidget.POWER -> openPowerSettings()
+            DesktopWidget.NETWORK -> openNetworkSettings()
+            DesktopWidget.WEATHER -> openWeather()
+            DesktopWidget.MUSIC -> openMusic()
+            DesktopWidget.NAVIGATION -> openNavigation()
+            DesktopWidget.VIDEO -> openVideo()
+            DesktopWidget.APPS -> showAppDrawer = true
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -332,6 +378,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 apps = apps,
                 onLaunchApp = launchApp,
                 onOpenMusic = openMusic,
+                onOpenWidget = openWidget,
                 widgetController = widgetController,
                 iconScale = settings.iconScale,
                 widgetScale = settings.widgetScale,
@@ -360,7 +407,8 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     now = now,
                     compact = compact,
                     scale = settings.clockScale,
-                    bold = settings.clockStyle == ClockStyle.BOLD
+                    style = settings.clockStyle,
+                    fontFamily = LauncherFonts.family(settings.clockFontId)
                 )
 
                 Row(
@@ -519,58 +567,130 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
 }
 
 
-/** Приветствие, крупные тонкие часы и дата в одну строку с разделителем. */
+/** Приветствие, крупные часы и дата. Размер даты и приветствия не зависит от стиля часов. */
 @Composable
 private fun ClockHeader(
     greeting: String,
     now: LocalDateTime,
     compact: Boolean,
     scale: Float,
-    bold: Boolean
+    style: ClockStyle,
+    fontFamily: FontFamily
 ) {
     val ru = Locale("ru")
-    val weight = if (bold) FontWeight.SemiBold else FontWeight.Light
-    val timeSize = (if (compact) 48f else 64f).sp * scale
-    val smallSize = (if (compact) 14f else 16f).sp * scale
+    val smallSize = (if (compact) 14f else 16f).sp
+    val timeSize = (if (compact) 48f else 64f).sp * scale * when (style) {
+        ClockStyle.SAMSUNG -> 0.94f
+        ClockStyle.IPHONE -> 1.06f
+        ClockStyle.PIXEL -> 0.98f
+        else -> 1f
+    }
+    val timeWeight = when (style) {
+        ClockStyle.BOLD -> FontWeight.SemiBold
+        ClockStyle.SAMSUNG -> FontWeight.Bold
+        ClockStyle.IPHONE -> FontWeight.Thin
+        ClockStyle.PIXEL -> FontWeight.Medium
+        ClockStyle.LIGHT -> FontWeight.Light
+    }
+    val timeColor = if (style == ClockStyle.PIXEL) Color(0xFFE4EEFF) else Color.White
+    val tracking = when (style) {
+        ClockStyle.SAMSUNG -> (-2).sp
+        ClockStyle.IPHONE -> (-1).sp
+        ClockStyle.PIXEL -> (-1).sp
+        else -> 0.sp
+    }
+    val greetingStyle = TextStyle(
+        fontFamily = fontFamily,
+        fontSize = smallSize * 0.85f,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 3.sp,
+        color = Color.White.copy(alpha = 0.9f)
+    )
+    val dateStyle = TextStyle(
+        fontFamily = fontFamily,
+        fontSize = smallSize,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 2.sp,
+        color = Color.White
+    )
+    val timeStyle = TextStyle(
+        fontFamily = fontFamily,
+        fontSize = timeSize,
+        fontWeight = timeWeight,
+        letterSpacing = tracking,
+        color = timeColor
+    )
+    val weekday = now.format(DateTimeFormatter.ofPattern("EEEE", ru)).uppercase(ru)
+    val date = now.format(DateTimeFormatter.ofPattern("d MMMM", ru)).uppercase(ru)
+    val clock = now.format(DateTimeFormatter.ofPattern("HH:mm"))
 
     Column {
         Text(
             text = greeting,
-            color = Color.White.copy(alpha = 0.9f),
-            fontSize = smallSize * 0.85f,
-            fontWeight = FontWeight.Medium,
-            letterSpacing = 3.sp,
+            style = greetingStyle,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = now.format(DateTimeFormatter.ofPattern("HH:mm")),
-                color = Color.White,
-                fontSize = timeSize,
-                fontWeight = weight
-            )
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .width(1.dp)
-                    .height(timeSize.value.dp * 0.7f)
-                    .background(Color.White.copy(alpha = 0.35f))
-            )
-            Column {
+        when (style) {
+            ClockStyle.LIGHT, ClockStyle.BOLD -> {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = clock, style = timeStyle)
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .width(1.dp)
+                            .height(timeSize.value.dp * 0.7f)
+                            .background(Color.White.copy(alpha = 0.35f))
+                    )
+                    Column {
+                        Text(text = weekday, style = dateStyle)
+                        Text(text = date, style = dateStyle)
+                    }
+                }
+            }
+            ClockStyle.SAMSUNG -> {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(text = clock, style = timeStyle)
+                    Text(
+                        text = now.format(DateTimeFormatter.ofPattern("ss")),
+                        style = dateStyle.copy(fontSize = smallSize * 1.15f, letterSpacing = 1.sp),
+                        modifier = Modifier.padding(
+                            start = 4.dp,
+                            bottom = timeSize.value.dp * 0.12f
+                        )
+                    )
+                }
                 Text(
-                    text = now.format(DateTimeFormatter.ofPattern("EEEE", ru)).uppercase(ru),
-                    color = Color.White,
-                    fontSize = smallSize,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 2.sp
+                    text = "$weekday · $date",
+                    style = dateStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+            }
+            ClockStyle.IPHONE -> {
+                Text(text = clock, style = timeStyle.copy(fontSize = timeSize * 1.04f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(text = weekday, style = dateStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = date, style = dateStyle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            ClockStyle.PIXEL -> {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = now.format(DateTimeFormatter.ofPattern("HH")),
+                        style = timeStyle.copy(color = Color(0xFFFF9F0A))
+                    )
+                    Text(
+                        text = ":",
+                        style = timeStyle.copy(color = Color.White.copy(alpha = 0.55f))
+                    )
+                    Text(text = now.format(DateTimeFormatter.ofPattern("mm")), style = timeStyle)
+                }
                 Text(
-                    text = now.format(DateTimeFormatter.ofPattern("d MMMM", ru)).uppercase(ru),
-                    color = Color.White,
-                    fontSize = smallSize,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 2.sp
+                    text = "$weekday · $date",
+                    style = dateStyle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

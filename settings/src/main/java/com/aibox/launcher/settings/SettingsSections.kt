@@ -8,6 +8,7 @@ import android.content.Intent
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Tune
 import com.aibox.launcher.widgets.AppWidgetController
+import com.aibox.launcher.core.ui.LauncherFonts
 import android.content.Context
 import android.media.AudioManager
 import android.net.ConnectivityManager
@@ -60,6 +61,7 @@ import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.VpnKey
 import androidx.compose.material.icons.rounded.WbSunny
@@ -207,6 +209,8 @@ private fun widgetIcon(widget: DesktopWidget) = when (widget) {
     DesktopWidget.NETWORK -> Icons.Rounded.Wifi
     DesktopWidget.WEATHER -> Icons.Rounded.Cloud
     DesktopWidget.MUSIC -> Icons.Rounded.MusicNote
+    DesktopWidget.NAVIGATION -> Icons.Rounded.Navigation
+    DesktopWidget.VIDEO -> Icons.Rounded.Videocam
     DesktopWidget.APPS -> Icons.Rounded.Apps
 }
 
@@ -216,6 +220,8 @@ private fun widgetColor(widget: DesktopWidget) = when (widget) {
     DesktopWidget.NETWORK -> Color(0xFF0A84FF)
     DesktopWidget.WEATHER -> Color(0xFF64D2FF)
     DesktopWidget.MUSIC -> Color(0xFFFF375F)
+    DesktopWidget.NAVIGATION -> Color(0xFF30D158)
+    DesktopWidget.VIDEO -> Color(0xFFFF453A)
     DesktopWidget.APPS -> Color(0xFFBF5AF2)
 }
 
@@ -678,6 +684,40 @@ internal fun PersonalizationSection(
         )
         RowDivider()
         SettingsRow(
+            icon = Icons.Rounded.Cloud,
+            iconColor = Color(0xFF64D2FF),
+            title = "Погодное приложение",
+            value = appLabels[settings.weatherPackage] ?: "Авто",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Погодное приложение",
+                        options = appOptions,
+                        selectedKey = settings.weatherPackage,
+                        onSelect = { settings.updateWeatherPackage(it) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Videocam,
+            iconColor = Color(0xFFFF453A),
+            title = "Видео / YouTube",
+            value = appLabels[settings.videoPackage] ?: "Авто",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Видео / YouTube",
+                        options = appOptions,
+                        selectedKey = settings.videoPackage,
+                        onSelect = { settings.updateVideoPackage(it) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
             icon = Icons.Rounded.Palette,
             iconColor = Color(0xFF5E5CE6),
             title = "Пак иконок",
@@ -728,6 +768,51 @@ internal fun PersonalizationSection(
             onClick = { onOpenSection(SettingsSection.HOME) }
         )
     }
+}
+
+/** Отдельный раздел шрифтов: весь интерфейс и часы настраиваются независимо. */
+@Composable
+internal fun FontSection(settings: LauncherSettings, onPick: (PickerRequest) -> Unit) {
+    val fonts = remember { LauncherFonts.all.map { PickerOption(it.id, it.title) } }
+    SectionTitle("Шрифты")
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.TextFields,
+            iconColor = SettingsColors.accent,
+            title = "Шрифт интерфейса",
+            value = LauncherFonts.title(settings.interfaceFontId),
+            subtitle = "Применяется ко всему лаунчеру и настройкам",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Шрифт интерфейса",
+                        options = fonts,
+                        selectedKey = settings.interfaceFontId,
+                        onSelect = { settings.updateInterfaceFont(it) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.AccessTime,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Шрифт часов",
+            value = LauncherFonts.title(settings.clockFontId),
+            subtitle = "Дата и приветствие не меняют размер",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Шрифт часов",
+                        options = fonts,
+                        selectedKey = settings.clockFontId,
+                        onSelect = { settings.updateClockFont(it) }
+                    )
+                )
+            }
+        )
+    }
+    HintText("Системный шрифт повторяет шрифт Android. Остальные встроены в лаунчер и не требуют загрузки.")
 }
 
 @Composable

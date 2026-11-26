@@ -7,6 +7,8 @@ enum class DesktopWidget(val id: String, val title: String) {
     NETWORK("network", "Сеть"),
     WEATHER("weather", "Погода"),
     MUSIC("music", "Музыка"),
+    NAVIGATION("navigation", "Навигация"),
+    VIDEO("video", "YouTube"),
     APPS("apps", "Все приложения");
 
     companion object {

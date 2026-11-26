@@ -14,7 +14,7 @@ object DockDefaults {
 
     /** Иконка дока не зависит от общего масштаба интерфейса. */
     fun iconSize(scale: Float, uiScale: Float): Dp =
-        (54.dp * scale.coerceIn(MIN_SCALE, MAX_SCALE)) / uiScale.coerceAtLeast(0.01f)
+        (46.dp * scale.coerceIn(MIN_SCALE, MAX_SCALE)) / uiScale.coerceAtLeast(0.01f)
 
     /** Ширина вертикальной капсулы дока вместе с внутренними отступами. */
     fun dockWidth(scale: Float, uiScale: Float): Dp =

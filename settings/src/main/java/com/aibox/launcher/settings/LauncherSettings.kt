@@ -9,11 +9,15 @@ import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.model.DesktopWidgetSize
+import com.aibox.launcher.core.ui.LauncherFonts
 import java.io.File
 
 enum class ClockStyle(val id: String, val title: String) {
     BOLD("bold", "Жирный"),
-    LIGHT("light", "Тонкий");
+    LIGHT("light", "Тонкий"),
+    SAMSUNG("samsung", "Samsung"),
+    IPHONE("iphone", "iPhone"),
+    PIXEL("pixel", "Google Pixel");
 
     companion object {
         fun fromId(id: String?): ClockStyle = entries.firstOrNull { it.id == id } ?: LIGHT
@@ -47,10 +51,22 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
         private set
+    var interfaceFontId by mutableStateOf(
+        prefs.getString(K_INTERFACE_FONT, LauncherFonts.DEFAULT_ID) ?: LauncherFonts.DEFAULT_ID
+    )
+        private set
+    var clockFontId by mutableStateOf(
+        prefs.getString(K_CLOCK_FONT, LauncherFonts.DEFAULT_ID) ?: LauncherFonts.DEFAULT_ID
+    )
+        private set
 
     var musicPackage by mutableStateOf(prefs.getString(K_MUSIC, "") ?: "")
         private set
     var navPackage by mutableStateOf(prefs.getString(K_NAV, "") ?: "")
+        private set
+    var weatherPackage by mutableStateOf(prefs.getString(K_WEATHER, "") ?: "")
+        private set
+    var videoPackage by mutableStateOf(prefs.getString(K_VIDEO, "") ?: "")
         private set
     var city by mutableStateOf(prefs.getString(K_CITY, "") ?: "")
         private set
@@ -58,7 +74,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     /** Записи рабочего стола: id встроенного виджета («date») или виджет другого приложения («aw:123»). */
     var page1Widgets by mutableStateOf(parseTokens(prefs.getString(K_P1, "date,power,network")))
         private set
-    var page2Widgets by mutableStateOf(parseTokens(prefs.getString(K_P2, "weather,music")))
+    var page2Widgets by mutableStateOf(
+        parseTokens(prefs.getString(K_P2, "weather,music,navigation,video"))
+    )
         private set
 
     /** Дождь и снег в «Живом небе» (самая «тяжёлая» часть анимации). */
@@ -99,6 +117,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putString(K_CLOCK_STYLE, value.id).apply()
     }
 
+    fun updateInterfaceFont(value: String) {
+        interfaceFontId = value
+        prefs.edit().putString(K_INTERFACE_FONT, value).apply()
+    }
+
+    fun updateClockFont(value: String) {
+        clockFontId = value
+        prefs.edit().putString(K_CLOCK_FONT, value).apply()
+    }
+
     fun updateMusicPackage(value: String) {
         musicPackage = value
         prefs.edit().putString(K_MUSIC, value).apply()
@@ -107,6 +135,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateNavPackage(value: String) {
         navPackage = value
         prefs.edit().putString(K_NAV, value).apply()
+    }
+
+    fun updateWeatherPackage(value: String) {
+        weatherPackage = value
+        prefs.edit().putString(K_WEATHER, value).apply()
+    }
+
+    fun updateVideoPackage(value: String) {
+        videoPackage = value
+        prefs.edit().putString(K_VIDEO, value).apply()
     }
 
     fun updateCity(value: String) {
@@ -249,8 +287,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_CLOCK = "clock_scale"
         const val K_THEME = "wallpaper_theme"
         const val K_CLOCK_STYLE = "clock_style"
+        const val K_INTERFACE_FONT = "interface_font"
+        const val K_CLOCK_FONT = "clock_font"
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
+        const val K_WEATHER = "weather_package"
+        const val K_VIDEO = "video_package"
         const val K_CITY = "weather_city"
         const val K_P1 = "widgets_page1"
         const val K_P2 = "widgets_page2"

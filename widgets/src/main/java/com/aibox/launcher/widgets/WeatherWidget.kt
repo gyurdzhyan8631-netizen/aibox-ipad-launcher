@@ -1,5 +1,6 @@
 package com.aibox.launcher.widgets
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,9 +19,13 @@ data class WeatherWidgetInfo(
 )
 
 @Composable
-fun WeatherWidget(info: WeatherWidgetInfo, modifier: Modifier = Modifier) {
+fun WeatherWidget(
+    info: WeatherWidgetInfo,
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier
+) {
     val tokens = LocalLauncherTokens.current
-    GlassCard(modifier = modifier) {
+    GlassCard(modifier = modifier.clickable(onClick = onClick)) {
         Column {
             Text(
                 text = "Погода",

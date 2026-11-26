@@ -12,7 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -65,6 +65,8 @@ import com.aibox.launcher.widgets.DateWidget
 import com.aibox.launcher.widgets.GlassCard
 import com.aibox.launcher.widgets.HostedAppWidget
 import com.aibox.launcher.widgets.MusicWidget
+import com.aibox.launcher.widgets.NavigationWidget
+import com.aibox.launcher.widgets.VideoWidget
 import com.aibox.launcher.widgets.WeatherWidget
 import com.aibox.launcher.widgets.WeatherWidgetInfo
 
@@ -145,6 +147,7 @@ fun HomeScreenPage(
     apps: List<InstalledApp>,
     onLaunchApp: (InstalledApp) -> Unit,
     onOpenMusic: () -> Unit,
+    onOpenWidget: (DesktopWidget) -> Unit,
     widgetController: AppWidgetController,
     iconScale: Float,
     widgetScale: Float,
@@ -179,7 +182,8 @@ fun HomeScreenPage(
                         onChange = { updated ->
                             live = live + (token to updated)
                             onResize(token, updated)
-                        }
+                        },
+                        onTap = { widget -> onOpenWidget(widget) }
                     ) {
                         val fill = Modifier.fillMaxSize()
                         val builtin = DesktopWidget.entries.firstOrNull { it.id == token }
@@ -194,6 +198,14 @@ fun HomeScreenPage(
                             builtin == DesktopWidget.NETWORK -> ConnectionWidget(modifier = fill)
                             builtin == DesktopWidget.WEATHER -> WeatherWidget(info = weather, modifier = fill)
                             builtin == DesktopWidget.MUSIC -> MusicWidget(onOpenPlayer = onOpenMusic, modifier = fill)
+                            builtin == DesktopWidget.NAVIGATION -> NavigationWidget(
+                                onClick = { onOpenWidget(DesktopWidget.NAVIGATION) },
+                                modifier = fill
+                            )
+                            builtin == DesktopWidget.VIDEO -> VideoWidget(
+                                onClick = { onOpenWidget(DesktopWidget.VIDEO) },
+                                modifier = fill
+                            )
                             builtin == DesktopWidget.APPS -> AppsWidget(
                                 apps = apps,
                                 onLaunchApp = onLaunchApp,
@@ -233,6 +245,7 @@ private fun WidgetCell(
     areaHeight: Dp,
     onRemove: () -> Unit,
     onChange: (DesktopWidgetSize) -> Unit,
+    onTap: (DesktopWidget) -> Unit,
     content: @Composable () -> Unit
 ) {
     val wiggle = rememberWiggle(editMode, index)
@@ -240,43 +253,77 @@ private fun WidgetCell(
     val density = LocalDensity.current
     val widthPx = with(density) { areaWidth.toPx().coerceAtLeast(1f) }
     val heightPx = with(density) { areaHeight.toPx().coerceAtLeast(1f) }
+    val currentEditMode by rememberUpdatedState(editMode)
+    val currentOnChange by rememberUpdatedState(onChange)
+    val tapTarget = remember(token) { DesktopWidget.entries.firstOrNull { it.id == token } }
 
-    Box(
-        modifier = Modifier
-            .offset(
-                x = areaWidth * size.x + with(density) { drag.x.toDp() },
-                y = areaHeight * size.y + with(density) { drag.y.toDp() }
-            )
-            .size(width = areaWidth * size.weight, height = areaHeight * size.height)
-            .graphicsLayer { rotationZ = wiggle.value }
-    ) {
+    val cellModifier = Modifier
+        .offset(
+            x = areaWidth * size.x + with(density) { drag.x.toDp() },
+            y = areaHeight * size.y + with(density) { drag.y.toDp() }
+        )
+        .size(width = areaWidth * size.weight, height = areaHeight * size.height)
+        .graphicsLayer { rotationZ = wiggle.value }
+        .then(
+            if (tapTarget != null && tapTarget != DesktopWidget.APPS) {
+                Modifier.clickable { onTap(tapTarget) }
+            } else {
+                Modifier
+            }
+        )
+        // Прямое перетаскивание пальцем: тап остаётся тапом, движение — переносом виджета.
+        .pointerInput(token) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val start = down.position
+                val handleZone = with(density) { 48.dp.toPx() }
+                val badgeZone = with(density) { 40.dp.toPx() }
+                val reserved = currentEditMode && (
+                    (start.x >= widthPx - handleZone && start.y >= heightPx - handleZone) ||
+                        (start.x <= badgeZone && start.y <= badgeZone)
+                    )
+                if (reserved) {
+                    // Крестик и стрелка размера обрабатываются своими own-жестами.
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                    }
+                    return@awaitEachGesture
+                }
+
+                var dragging = false
+                var moved = Offset.Zero
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) break
+                    if (!dragging && (change.position - start).getDistance() > viewConfiguration.touchSlop) {
+                        dragging = true
+                    }
+                    if (dragging) {
+                        change.consume()
+                        moved += change.position - change.previousPosition
+                        drag = moved
+                    }
+                }
+                if (dragging) {
+                    val nextX = (size.x + moved.x / widthPx)
+                        .coerceIn(0f, (1f - size.weight).coerceAtLeast(0f))
+                    val nextY = (size.y + moved.y / heightPx)
+                        .coerceIn(0f, (1f - size.height).coerceAtLeast(0f))
+                    drag = Offset.Zero
+                    if (nextX != size.x || nextY != size.y) {
+                        currentOnChange(size.copy(x = nextX, y = nextY))
+                    }
+                }
+            }
+        }
+
+    Box(modifier = cellModifier) {
         content()
 
         if (editMode) {
-            // Табы не перехватываются: кнопки и виджеты приложений остаются доступными.
-            Box(
-                modifier = Modifier.matchParentSize().pointerInput(token) {
-                    detectDragGesturesAfterLongPress(
-                        onDragStart = { drag = Offset.Zero },
-                        onDrag = { change, amount ->
-                            change.consume()
-                            drag += amount
-                        },
-                        onDragEnd = {
-                            val nextX = (size.x + drag.x / widthPx)
-                                .coerceIn(0f, (1f - size.weight).coerceAtLeast(0f))
-                            val nextY = (size.y + drag.y / heightPx)
-                                .coerceIn(0f, (1f - size.height).coerceAtLeast(0f))
-                            drag = Offset.Zero
-                            if (nextX != size.x || nextY != size.y) {
-                                onChange(size.copy(x = nextX, y = nextY))
-                            }
-                        },
-                        onDragCancel = { drag = Offset.Zero }
-                    )
-                }
-            )
-
             EditBadge(
                 icon = Icons.Rounded.Close,
                 background = Color(0xFFFF453A),
