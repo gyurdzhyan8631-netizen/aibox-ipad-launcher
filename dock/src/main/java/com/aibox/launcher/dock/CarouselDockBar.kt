@@ -3,22 +3,30 @@ package com.aibox.launcher.dock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -29,136 +37,193 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconPreview
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.floor
-import kotlin.math.roundToInt
 
 /**
- * Горизонтальный док-карусель в одном ряду с капсулой горячих клавиш.
+ * Горизонтальный док в стеклянной капсуле, в одном ряду с капсулой горячих клавиш.
  *
- * Все приложения крутятся по замкнутому кругу. Центральная иконка чуть больше и «выезжает»
- * вперёд пружиной, соседние тускнеют. Подписей нет. Слева — отдельная кнопка «Все приложения».
+ * Карусель занимает всю доступную ширину слева, а справа стоят две кнопки:
+ * «Все приложения» и «Настройки». Они не перекрывают иконки карусели.
+ * Прокрутка свободная, с инерцией; пружинное выделение центральной иконки сохранено.
  */
 @Composable
 fun CarouselDockBar(
     apps: List<InstalledApp>,
     onLaunchApp: (InstalledApp) -> Unit,
     onOpenDrawer: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     scale: Float = DockDefaults.DEFAULT_SCALE,
     uiScale: Float = 1f
 ) {
     val density = LocalDensity.current
     val safeUiScale = uiScale.coerceAtLeast(0.01f)
-    // Высота дока равна высоте капсулы горячих клавиш.
     val iconSize = DockDefaults.iconSize(scale, uiScale)
+    val buttonSize = iconSize * 0.86f
 
-    val stepPx = with(density) { (iconSize + (6.dp / safeUiScale)).toPx() }
+    // Увеличили зазор: иконки больше не слипаются.
+    val iconGap = 16.dp / safeUiScale
+    val stepPx = with(density) { (iconSize + iconGap).toPx() }
     val forwardPx = with(density) { (8.dp / safeUiScale).toPx() }
     val count = apps.size.coerceAtLeast(1)
     val cyclePx = stepPx * count
-    val snapSpec = spring<Float>(dampingRatio = 0.62f, stiffness = Spring.StiffnessMediumLow)
 
     val scroll = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val scrollState by remember { derivedStateOf { scroll.value } }
     var viewportPx by remember { mutableIntStateOf(1) }
     var lastDragAt by remember { mutableLongStateOf(0L) }
+    var lastDragTime by remember { mutableLongStateOf(0L) }
+    var dragVelocity by remember { mutableFloatStateOf(0f) }
 
-    // Бесконечная прокрутка приводится к одному циклу, чтобы иконки не уезжали за экран.
+    // Бесконечный круг приводится к одному циклу только для расчёта положений.
     val normalized = scrollState - floor(scrollState / cyclePx) * cyclePx
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged { viewportPx = it.width.coerceAtLeast(1) }
-            // Без обрезки и стеклянной подложки: увеличенная иконка не режется о края дока.
-            .pointerInput(apps.size) {
-                detectDragGestures(
-                    onDragEnd = {
-                        // Пружина доводит ближайшую иконку до центра карусели.
-                        lastDragAt = System.currentTimeMillis()
-                        scope.launch {
-                            val target = (scroll.value / stepPx).roundToInt() * stepPx
-                            scroll.animateTo(target, snapSpec)
-                            scroll.snapTo(((target % cyclePx) + cyclePx) % cyclePx)
-                        }
-                    },
-                    onDragCancel = {
-                        lastDragAt = System.currentTimeMillis()
-                        scope.launch {
-                            val target = (scroll.value / stepPx).roundToInt() * stepPx
-                            scroll.animateTo(target, snapSpec)
-                            scroll.snapTo(((target % cyclePx) + cyclePx) % cyclePx)
+    fun wrap(value: Float): Float {
+        val wrapped = value % cyclePx
+        return if (wrapped < 0f) wrapped + cyclePx else wrapped
+    }
+
+    fun finishDrag() {
+        val velocity = dragVelocity
+        lastDragAt = System.currentTimeMillis()
+        scope.launch {
+            // Полноценный разгон: прокрутка не ограничена одним шагом.
+            if (abs(velocity) > 25f) {
+                scroll.animateDecay(velocity, exponentialDecay())
+            }
+            scroll.snapTo(wrap(scroll.value))
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        // Стеклянная капсула рисуется отдельным слоем и не обрезает увеличенную иконку.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .glassSurface(RoundedCornerShape(percent = 50))
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp / safeUiScale),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .onSizeChanged { viewportPx = it.width.coerceAtLeast(1) }
+                    .pointerInput(apps.size) {
+                        detectDragGestures(
+                            onDragStart = {
+                                dragVelocity = 0f
+                                lastDragTime = 0L
+                            },
+                            onDragEnd = { finishDrag() },
+                            onDragCancel = { finishDrag() }
+                        ) { change, amount ->
+                            change.consume()
+                            val now = System.currentTimeMillis()
+                            if (lastDragTime != 0L) {
+                                val dt = (now - lastDragTime).coerceAtLeast(1L)
+                                val instant = amount.x / dt * 1000f
+                                dragVelocity = dragVelocity * 0.65f + instant * 0.35f
+                            }
+                            lastDragTime = now
+                            scope.launch { scroll.snapTo(scroll.value + amount.x) }
                         }
                     }
-                ) { change, amount ->
-                    change.consume()
-                    scope.launch { scroll.snapTo(scroll.value + amount.x) }
+            ) {
+                apps.forEachIndexed { index, app ->
+                    (-2..2).forEach { repeat ->
+                        val relativePx = index * stepPx + normalized + repeat * cyclePx
+                        if (abs(relativePx) <= viewportPx / 2f + stepPx * 1.5f) {
+                            val distance = (abs(relativePx) / stepPx).coerceIn(0f, 1f)
+                            // Пружина центральной иконки не изменена.
+                            val scaleByDistance by animateFloatAsState(
+                                targetValue = 1.22f - 0.22f * distance,
+                                animationSpec = spring(
+                                    dampingRatio = 0.58f,
+                                    stiffness = Spring.StiffnessMediumLow
+                                ),
+                                label = "dockIconScale"
+                            )
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .align(Alignment.Center)
+                                    .offset(x = with(density) { relativePx.toDp() })
+                                    .size(iconSize)
+                                    .graphicsLayer {
+                                        scaleX = scaleByDistance
+                                        scaleY = scaleByDistance
+                                        translationY = -(1f - distance) * forwardPx
+                                        alpha = 1f - 0.5f * distance
+                                    }
+                                    .clickable {
+                                        if (System.currentTimeMillis() - lastDragAt > 250L) {
+                                            onLaunchApp(app)
+                                        }
+                                    }
+                            ) {
+                                AppIconPreview(app.packageName, app.label, iconSize)
+                            }
+                        }
+                    }
                 }
             }
-    ) {
-        // Отдельная кнопка всех приложений не участвует в карусели.
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 10.dp / safeUiScale)
-                .size(iconSize)
-                .clip(CircleShape)
-                .background(Color(0x660A84FF))
-                .clickable(onClick = onOpenDrawer)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Apps,
-                contentDescription = "Все приложения",
-                tint = Color.White,
-                modifier = Modifier.size(iconSize * 0.5f)
+
+            Spacer(Modifier.width(10.dp / safeUiScale))
+            DockActionButton(
+                icon = Icons.Rounded.Apps,
+                description = "Все приложения",
+                size = buttonSize,
+                onClick = onOpenDrawer
+            )
+            Spacer(Modifier.width(8.dp / safeUiScale))
+            DockActionButton(
+                icon = Icons.Rounded.Settings,
+                description = "Настройки",
+                size = buttonSize,
+                onClick = onOpenSettings
             )
         }
+    }
+}
 
-        apps.forEachIndexed { index, app ->
-            // Несколько копий замыкают круг: соседи появляются заранее слева и справа.
-            (-2..2).forEach { repeat ->
-                val relativePx = index * stepPx + normalized + repeat * cyclePx
-                if (abs(relativePx) <= viewportPx / 2f + stepPx) {
-                    val distance = (abs(relativePx) / stepPx).coerceIn(0f, 1f)
-                    val scaleByDistance by animateFloatAsState(
-                        targetValue = 1.22f - 0.22f * distance,
-                        animationSpec = spring(
-                            dampingRatio = 0.58f,
-                            stiffness = Spring.StiffnessMediumLow
-                        ),
-                        label = "dockIconScale"
-                    )
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .offset(x = with(density) { relativePx.toDp() })
-                            .size(iconSize)
-                            .graphicsLayer {
-                                scaleX = scaleByDistance
-                                scaleY = scaleByDistance
-                                // Центральная иконка чуть выдвигается из капсулы вверх.
-                                translationY = -(1f - distance) * forwardPx
-                                alpha = 1f - 0.5f * distance
-                            }
-                            .clickable {
-                                if (System.currentTimeMillis() - lastDragAt > 250L) onLaunchApp(app)
-                            }
-                    ) {
-                        AppIconPreview(app.packageName, app.label, iconSize)
-                    }
-                }
-            }
-        }
+@Composable
+private fun DockActionButton(
+    icon: ImageVector,
+    description: String,
+    size: Dp,
+    onClick: () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Color(0x660A84FF))
+            .clickable(onClick = onClick)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.52f)
+        )
     }
 }

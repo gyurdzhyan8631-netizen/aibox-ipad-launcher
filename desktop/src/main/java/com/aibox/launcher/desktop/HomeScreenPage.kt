@@ -66,6 +66,7 @@ import com.aibox.launcher.widgets.GlassCard
 import com.aibox.launcher.widgets.HostedAppWidget
 import com.aibox.launcher.widgets.MusicWidget
 import com.aibox.launcher.widgets.NavigationWidget
+import com.aibox.launcher.widgets.ShortcutInfo
 import com.aibox.launcher.widgets.VideoWidget
 import com.aibox.launcher.widgets.WeatherWidget
 import com.aibox.launcher.widgets.WeatherWidgetInfo
@@ -75,21 +76,27 @@ const val APP_WIDGET_PREFIX = "aw:"
 
 private val EditAccent = Color(0xFF0A84FF)
 
-/** Начальное положение: аккуратная сетка, дальше виджет можно поставить куда угодно. */
-fun defaultWidgetSize(token: String, index: Int = 0, count: Int = 1): DesktopWidgetSize {
-    val columns = if (count <= 1) 1 else 2
-    val slot = 1f / columns
-    val extra = when {
-        token == DesktopWidget.APPS.id -> 1.15f
-        token.startsWith(APP_WIDGET_PREFIX) -> 1.05f
-        else -> 1f
-    }
-    return DesktopWidgetSize(
-        weight = (slot * 0.9f * extra).coerceAtMost(0.95f),
-        height = 0.34f,
-        x = (index % columns) * slot + slot * 0.05f,
-        y = (index / columns) * 0.36f + 0.02f
-    )
+/** Начальное положение: новые виджеты сразу квадратные, дальше их можно перемещать и тянуть. */
+fun defaultWidgetSize(
+    token: String,
+    areaWidth: Dp,
+    areaHeight: Dp,
+    index: Int = 0,
+    count: Int = 1
+): DesktopWidgetSize {
+    val width = areaWidth.value.coerceAtLeast(1f)
+    val height = areaHeight.value.coerceAtLeast(1f)
+    val side = minOf(width, height) * 0.30f
+    val gap = 12f
+    val fitColumns = (width / (side + gap)).toInt().coerceAtLeast(1).coerceAtMost(4)
+    val columns = if (count <= 1) 1 else minOf(count, fitColumns)
+    val col = index % columns
+    val row = index / columns
+    val weight = (side / width).coerceIn(0.08f, 0.95f)
+    val heightFraction = (side / height).coerceIn(0.08f, 0.95f)
+    val x = ((col * (side + gap) + gap) / width).coerceIn(0f, (1f - weight).coerceAtLeast(0f))
+    val y = ((row * (side + gap) + gap) / height).coerceIn(0f, (1f - heightFraction).coerceAtLeast(0f))
+    return DesktopWidgetSize(weight = weight, height = heightFraction, x = x, y = y)
 }
 
 /**
@@ -148,6 +155,8 @@ fun HomeScreenPage(
     onLaunchApp: (InstalledApp) -> Unit,
     onOpenMusic: () -> Unit,
     onOpenWidget: (DesktopWidget) -> Unit,
+    navigationAppLabel: String,
+    videoAppLabel: String,
     widgetController: AppWidgetController,
     iconScale: Float,
     widgetScale: Float,
@@ -170,7 +179,8 @@ fun HomeScreenPage(
         ScaledContent(widgetScale) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 widgets.forEachIndexed { index, token ->
-                    val size = live[token] ?: defaultWidgetSize(token, index, widgets.size)
+                    val size = live[token]
+                        ?: defaultWidgetSize(token, maxWidth, maxHeight, index, widgets.size)
                     WidgetCell(
                         token = token,
                         index = index,
@@ -199,10 +209,19 @@ fun HomeScreenPage(
                             builtin == DesktopWidget.WEATHER -> WeatherWidget(info = weather, modifier = fill)
                             builtin == DesktopWidget.MUSIC -> MusicWidget(onOpenPlayer = onOpenMusic, modifier = fill)
                             builtin == DesktopWidget.NAVIGATION -> NavigationWidget(
+                                info = ShortcutInfo(
+                                    appLabel = navigationAppLabel,
+                                    place = weather.place,
+                                    note = "Нажмите для маршрута"
+                                ),
                                 onClick = { onOpenWidget(DesktopWidget.NAVIGATION) },
                                 modifier = fill
                             )
                             builtin == DesktopWidget.VIDEO -> VideoWidget(
+                                info = ShortcutInfo(
+                                    appLabel = videoAppLabel,
+                                    note = "Нажмите, чтобы открыть видео"
+                                ),
                                 onClick = { onOpenWidget(DesktopWidget.VIDEO) },
                                 modifier = fill
                             )

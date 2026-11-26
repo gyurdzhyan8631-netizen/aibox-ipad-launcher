@@ -177,6 +177,12 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     }
     // В боковом доке участвуют все приложения — порядок по алфавиту и замкнутый круг.
     val carouselApps = remember(apps) { apps.sortedBy { it.label } }
+    val navigationAppLabel = remember(apps, settings.navPackage) {
+        apps.firstOrNull { it.packageName == settings.navPackage }?.label ?: "Навигатор"
+    }
+    val videoAppLabel = remember(apps, settings.videoPackage) {
+        apps.firstOrNull { it.packageName == settings.videoPackage }?.label ?: "YouTube"
+    }
 
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -289,7 +295,11 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             temp = formatTemp(shownWeather.tempC),
             condition = shownWeather.condition.titleRu(),
             place = shownWeather.cityName,
-            note = if (isStale(shownWeather.fetchedAtMillis, nowMillis)) "нет связи" else ""
+            note = when {
+                errorText != null -> errorText
+                isStale(shownWeather.fetchedAtMillis, nowMillis) -> "нет связи"
+                else -> "обновлено ${ageText(shownWeather.fetchedAtMillis, nowMillis)}"
+            }
         )
         else -> WeatherWidgetInfo(condition = "Загрузка…", place = city)
     }
@@ -379,6 +389,8 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 onLaunchApp = launchApp,
                 onOpenMusic = openMusic,
                 onOpenWidget = openWidget,
+                navigationAppLabel = navigationAppLabel,
+                videoAppLabel = videoAppLabel,
                 widgetController = widgetController,
                 iconScale = settings.iconScale,
                 widgetScale = settings.widgetScale,
@@ -470,6 +482,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     apps = carouselApps,
                     onLaunchApp = launchApp,
                     onOpenDrawer = { showAppDrawer = true },
+                    onOpenSettings = { openSettings("personalization") },
                     scale = settings.panelScale,
                     uiScale = uiScale,
                     modifier = Modifier
