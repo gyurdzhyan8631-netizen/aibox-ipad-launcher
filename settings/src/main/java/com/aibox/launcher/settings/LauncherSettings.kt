@@ -8,7 +8,7 @@ import androidx.compose.runtime.setValue
 import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
-import com.aibox.launcher.core.model.WidgetSize
+import com.aibox.launcher.core.model.DesktopWidgetSize
 import java.io.File
 
 enum class ClockStyle(val id: String, val title: String) {
@@ -155,12 +155,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         storeWidgets(page, widgetsOf(page).filter { it != token })
     }
 
-    fun sizesFor(page: Int): Map<String, WidgetSize> =
+    fun sizesFor(page: Int): Map<String, DesktopWidgetSize> =
         widgetSizes
             .filterKeys { it.startsWith("$page:") }
             .mapKeys { it.key.substringAfter(':') }
 
-    fun setWidgetSize(page: Int, token: String, size: WidgetSize) {
+    fun setWidgetSize(page: Int, token: String, size: DesktopWidgetSize) {
         widgetSizes = widgetSizes + ("$page:$token" to size)
         prefs.edit()
             .putString(
@@ -237,14 +237,14 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putStringSet(K_HIDDEN, hiddenInDock.toSet()).apply()
     }
 
-    private fun parseSizes(raw: String?): Map<String, WidgetSize> =
+    private fun parseSizes(raw: String?): Map<String, DesktopWidgetSize> =
         (raw ?: "").split(';').mapNotNull { entry ->
             val parts = entry.split('=')
             if (parts.size != 2) return@mapNotNull null
             val values = parts[1].split(',')
             val weight = values.getOrNull(0)?.toFloatOrNull()
             val height = values.getOrNull(1)?.toFloatOrNull()
-            if (weight == null || height == null) null else parts[0] to WidgetSize(weight, height)
+            if (weight == null || height == null) null else parts[0] to DesktopWidgetSize(weight, height)
         }.toMap()
 
     private fun parseTokens(csv: String?): List<String> =

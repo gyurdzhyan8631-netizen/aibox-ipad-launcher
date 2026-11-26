@@ -56,7 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.DesktopWidget
 import com.aibox.launcher.core.model.InstalledApp
-import com.aibox.launcher.core.model.WidgetSize
+import com.aibox.launcher.core.model.DesktopWidgetSize
 import com.aibox.launcher.core.ui.ScaledContent
 import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconView
@@ -76,7 +76,7 @@ const val APP_WIDGET_PREFIX = "aw:"
 private val EditAccent = Color(0xFF0A84FF)
 
 /** Размер виджета по умолчанию. */
-fun defaultWidgetSize(token: String): WidgetSize = WidgetSize(
+fun defaultWidgetSize(token: String): DesktopWidgetSize = DesktopWidgetSize(
     weight = when {
         token == DesktopWidget.APPS.id -> 2f
         token.startsWith(APP_WIDGET_PREFIX) -> 1.5f
@@ -131,12 +131,12 @@ private fun rememberWiggle(enabled: Boolean, phase: Int): State<Float> {
 @Composable
 fun HomeScreenPage(
     widgets: List<String>,
-    sizes: Map<String, WidgetSize>,
+    sizes: Map<String, DesktopWidgetSize>,
     editMode: Boolean,
     onEnterEdit: () -> Unit,
     onRemove: (String) -> Unit,
     onMove: (String, Int) -> Unit,
-    onResize: (String, WidgetSize) -> Unit,
+    onResize: (String, DesktopWidgetSize) -> Unit,
     onAddWidget: () -> Unit,
     weather: WeatherWidgetInfo,
     apps: List<InstalledApp>,
@@ -184,7 +184,7 @@ fun HomeScreenPage(
                                 .toFloat() + 0.5f
                             val unitPx = rowWidthPx / total
                             val current = live[token] ?: defaultWidgetSize(token)
-                            live = live + (token to WidgetSize(
+                            live = live + (token to DesktopWidgetSize(
                                 weight = (current.weight + dx / unitPx).coerceIn(0.6f, 4f),
                                 height = (current.height + dy / rowHeightPx).coerceIn(0.35f, 1f)
                             ))
@@ -237,7 +237,7 @@ private fun RowScope.WidgetCell(
     token: String,
     index: Int,
     last: Int,
-    size: WidgetSize,
+    size: DesktopWidgetSize,
     editMode: Boolean,
     onRemove: () -> Unit,
     onMove: (Int) -> Unit,
