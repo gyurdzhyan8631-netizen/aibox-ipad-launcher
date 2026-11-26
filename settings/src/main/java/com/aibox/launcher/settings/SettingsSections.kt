@@ -2,6 +2,7 @@ package com.aibox.launcher.settings
 
 import android.app.Activity
 import android.appwidget.AppWidgetManager
+import android.graphics.BitmapFactory
 import android.content.ComponentName
 import android.content.Intent
 import androidx.compose.material.icons.rounded.Widgets
@@ -36,6 +37,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Image as ImageIcon
 import androidx.compose.material.icons.rounded.Refresh
@@ -79,6 +81,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -779,6 +782,215 @@ private fun ThemeCard(
     }
 }
 
+// ---------------------------------------------------------------- Сторонние иконки
+
+/**
+ * Раздел «Сторонние иконки»: можно добавить скачанные картинки в библиотеку
+ * и поставить любую из них на любое приложение.
+ */
+@Composable
+internal fun CustomIconsSection(
+    settings: LauncherSettings,
+    apps: List<InstalledApp>,
+    onPick: (PickerRequest) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var library by remember { mutableStateOf(CustomIconStore.library(context)) }
+    var pendingApp by remember { mutableStateOf<String?>(null) }
+
+    fun refresh() {
+        library = CustomIconStore.library(context)
+    }
+
+    val pickForLibrary = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val added = withContext(Dispatchers.IO) { CustomIconStore.importToLibrary(context, uri) != null }
+            if (added) refresh() else Toast.makeText(context, "Не удалось добавить иконку", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val pickForApp = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val packageName = pendingApp
+        pendingApp = null
+        if (uri == null || packageName == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) { CustomIconStore.set(context, packageName, uri) }
+            if (!ok) Toast.makeText(context, "Не удалось поставить иконку", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun launchFilePicker(picker: androidx.activity.result.ActivityResultLauncher<String>, type: String = "image/*") {
+        runCatching { picker.launch(type) }.onFailure {
+            Toast.makeText(context, "На устройстве нет приложения для выбора файлов", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    HintText("Добавьте скачанную картинку в библиотеку и назначьте её приложению. Иконки в доке меняются долгим нажатием и перетаскиванием.")
+
+    SectionTitle("Библиотека иконок")
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.Add,
+            iconColor = Color(0xFF30D158),
+            title = "Добавить скачанную иконку",
+            subtitle = "Выбрать файл с устройства",
+            onClick = { launchFilePicker(pickForLibrary) }
+        )
+        library.forEachIndexed { index, file ->
+            RowDivider()
+            val bitmap = remember(file.path, CustomIconStore.version) {
+                runCatching { BitmapFactory.decodeFile(file.path)?.asImageBitmap() }.getOrNull()
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onPick(
+                            PickerRequest(
+                                title = "Иконка ${index + 1} — поставить на приложение",
+                                options = listOf(PickerOption("", "Отмена")) + apps.map {
+                                    PickerOption(it.packageName, it.label)
+                                },
+                                selectedKey = "",
+                                onSelect = { key ->
+                                    if (key.isEmpty()) return@PickerRequest
+                                    scope.launch {
+                                        withContext(Dispatchers.IO) {
+                                            CustomIconStore.setFromLibrary(context, key, file)
+                                        }
+                                    }
+                                }
+                            )
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.12f))
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    text = "Иконка ${index + 1}",
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Rounded.Delete,
+                    contentDescription = "Удалить иконку",
+                    tint = Color(0xFFFF453A),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            CustomIconStore.deleteFromLibrary(context, file)
+                            refresh()
+                        }
+                        .padding(6.dp)
+                )
+            }
+        }
+        if (library.isEmpty()) {
+            RowDivider()
+            Text(
+                text = "Библиотека пуста",
+                color = SettingsColors.textSecondary,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+            )
+        }
+    }
+
+    SectionTitle("Иконки приложений")
+    SettingsGroup {
+        apps.forEachIndexed { index, app ->
+            if (index > 0) RowDivider()
+            val icon = rememberAppIcon(app.packageName)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val options = mutableListOf(
+                            PickerOption("file", "Выбрать файл…"),
+                            PickerOption("reset", "Вернуть стандартную иконку")
+                        )
+                        library.forEachIndexed { i, _ ->
+                            options += PickerOption("lib:$i", "Из библиотеки · иконка ${i + 1}")
+                        }
+                        onPick(
+                            PickerRequest(
+                                title = app.label,
+                                options = options,
+                                selectedKey = "",
+                                onSelect = { key ->
+                                    when {
+                                        key == "file" -> {
+                                            pendingApp = app.packageName
+                                            launchFilePicker(pickForApp)
+                                        }
+                                        key == "reset" -> CustomIconStore.clear(context, app.packageName)
+                                        key.startsWith("lib:") -> {
+                                            val file = library.getOrNull(key.removePrefix("lib:").toIntOrNull() ?: -1)
+                                            if (file != null) {
+                                                scope.launch {
+                                                    withContext(Dispatchers.IO) {
+                                                        CustomIconStore.setFromLibrary(context, app.packageName, file)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                if (icon != null) {
+                    Image(
+                        bitmap = icon,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.White.copy(alpha = 0.12f))
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = app.label, color = Color.White, fontSize = 17.sp)
+                    if (CustomIconStore.has(context, app.packageName)) {
+                        Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------- Приложения
 
 @Composable
@@ -993,6 +1205,10 @@ internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (Settin
     val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         importPicked(uri, video = true)
     }
+    // Системный выбор обоев: тип меняется только если пользователь действительно выбрал обои.
+    val pickSystemWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == Activity.RESULT_OK) settings.selectWallpaper(WallpaperType.SYSTEM)
+    }
     fun launchPicker(video: Boolean) {
         runCatching { if (video) pickVideo.launch("video/*") else pickImage.launch("image/*") }
             .onFailure {
@@ -1053,13 +1269,14 @@ internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (Settin
             iconColor = Color(0xFF0A84FF),
             title = "Системные и живые обои Android",
             value = if (settings.wallpaperType == WallpaperType.SYSTEM) "Выбрано" else "",
-            subtitle = "Откроется системный выбор обоев",
+            subtitle = "Открыть выбор системных и живых обоев Android",
             onClick = {
-                settings.selectWallpaper(WallpaperType.SYSTEM)
-                val chooser = android.content.Intent(android.app.WallpaperManager.ACTION_LIVE_WALLPAPER_CHOOSER)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                runCatching { context.startActivity(chooser) }.onFailure {
-                    SystemSettingsLauncher.open(context, android.content.Intent.ACTION_SET_WALLPAPER)
+                val chooser = android.content.Intent.createChooser(
+                    android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER),
+                    "Выбрать системные обои"
+                )
+                runCatching { pickSystemWallpaper.launch(chooser) }.onFailure {
+                    Toast.makeText(context, "Выбор обоев недоступен на этом устройстве", Toast.LENGTH_LONG).show()
                 }
             }
         )

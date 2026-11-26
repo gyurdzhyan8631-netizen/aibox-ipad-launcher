@@ -450,19 +450,33 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
 
                 Spacer(Modifier.width(14.dp))
 
-                CarouselDockBar(
-                    apps = dockApps,
-                    onLaunchApp = launchApp,
-                    onOpenDrawer = { showAppDrawer = !showAppDrawer },
-                    onOpenSettings = { openSettings("personalization") },
-                    onReorder = { settings.updateDockOrder(it) },
-                    modifier = Modifier.weight(1f),
-                    scale = settings.panelScale,
-                    uiScale = uiScale
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(settings.dockWidth),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CarouselDockBar(
+                        apps = dockApps,
+                        onLaunchApp = launchApp,
+                        onOpenDrawer = { showAppDrawer = !showAppDrawer },
+                        onOpenSettings = { openSettings("personalization") },
+                        onReorder = { settings.updateDockOrder(it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        scale = settings.panelScale,
+                        uiScale = uiScale,
+                        dockWidth = settings.dockWidth,
+                        onDockWidthChange = { settings.updateDockWidth(it) },
+                        onPanelScaleChange = { settings.updatePanelScale(it) }
+                    )
+                }
 
                 // Капсула слева и такой же отступ справа — док остаётся по центру экрана.
-                Spacer(Modifier.width(with(LocalDensity.current) { capsuleWidthPx.toDp() }))
+                Spacer(
+                    Modifier.width(
+                        14.dp + with(LocalDensity.current) { capsuleWidthPx.toDp() }
+                    )
+                )
             }
         }
 

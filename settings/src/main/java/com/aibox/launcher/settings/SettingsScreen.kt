@@ -81,6 +81,7 @@ enum class SettingsSection(
     PERSONALIZATION("personalization", "Персонализация", Icons.Rounded.Palette, Color(0xFF5E5CE6)),
     SIZES("sizes", "Размеры", Icons.Rounded.Tune, Color(0xFF64D2FF)),
     WALLPAPERS("wallpapers", "Обои", Icons.Rounded.Image, Color(0xFF30B0C7)),
+    ICONS("icons", "Сторонние иконки", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
     APPS("apps", "Приложения", Icons.Rounded.Apps, Color(0xFFBF5AF2)),
     SYSTEM("system", "Система", Icons.Rounded.Info, Color(0xFF8E8E93)),
     UPDATE("update", "Обновление", Icons.Rounded.Refresh, Color(0xFF30D158)),
@@ -206,6 +207,7 @@ fun SettingsScreen(
                             )
                             SettingsSection.SIZES -> SizesSection(settings)
                             SettingsSection.WALLPAPERS -> WallpaperSection(settings, onOpenSection = { section = it })
+                            SettingsSection.ICONS -> CustomIconsSection(settings, apps, onPick = { picker = it })
                             SettingsSection.APPS -> AppsSection(settings, apps, onPick = { picker = it })
                             SettingsSection.SYSTEM -> SystemSection()
                             SettingsSection.UPDATE -> UpdateSection()

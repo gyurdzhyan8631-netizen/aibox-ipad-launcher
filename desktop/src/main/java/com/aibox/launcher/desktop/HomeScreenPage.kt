@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -70,6 +71,7 @@ import com.aibox.launcher.widgets.HostedAppWidget
 import com.aibox.launcher.widgets.MusicWidget
 import com.aibox.launcher.widgets.WeatherWidget
 import com.aibox.launcher.widgets.WeatherWidgetInfo
+import kotlin.math.roundToInt
 
 /** Префикс записи о виджете другого приложения: «aw:123». */
 const val APP_WIDGET_PREFIX = "aw:"
@@ -162,6 +164,7 @@ fun HomeScreenPage(
     var live by remember(sizes) { mutableStateOf(sizes) }
     var rowWidthPx by remember { mutableIntStateOf(1) }
     var rowHeightPx by remember { mutableIntStateOf(1) }
+    val cellWidthPx = rowWidthPx / widgets.size.coerceAtLeast(1).toFloat()
 
     Box(modifier = area.longPressObserver { if (!editMode) onEnterEdit() }) {
         ScaledContent(widgetScale) {
@@ -182,6 +185,7 @@ fun HomeScreenPage(
                         last = widgets.size - 1,
                         size = size,
                         editMode = editMode,
+                        cellWidthPx = cellWidthPx,
                         onRemove = { onRemove(token) },
                         onMove = { delta -> onMove(token, delta) },
                         onResizeDrag = { dx, dy ->
@@ -244,6 +248,7 @@ private fun RowScope.WidgetCell(
     last: Int,
     size: DesktopWidgetSize,
     editMode: Boolean,
+    cellWidthPx: Float,
     onRemove: () -> Unit,
     onMove: (Int) -> Unit,
     onResizeDrag: (Float, Float) -> Unit,
@@ -265,11 +270,30 @@ private fun RowScope.WidgetCell(
             content()
 
             if (editMode) {
-                // перехватываем касания: пока идёт правка, сами виджеты не реагируют
+                var dragX by remember { mutableFloatStateOf(0f) }
+                // Перетаскивание пальцем переносит виджет в другое место рабочего стола.
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .pointerInput(token) { detectTapGestures { } }
+                        .graphicsLayer { translationX = dragX }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}
+                        )
+                        .pointerInput(token) {
+                            detectDragGestures(
+                                onDragEnd = {
+                                    val steps = (dragX / cellWidthPx.coerceAtLeast(1f)).roundToInt()
+                                    if (steps != 0) onMove(steps)
+                                    dragX = 0f
+                                },
+                                onDragCancel = { dragX = 0f }
+                            ) { change, amount ->
+                                change.consume()
+                                dragX += amount.x
+                            }
+                        }
                 )
 
                 EditBadge(
@@ -303,8 +327,30 @@ private fun RowScope.WidgetCell(
                             .offset(x = 8.dp)
                     )
                 }
+                // Четыре угла: растягивать можно в любую сторону.
                 ResizeHandle(
-                    onDrag = onResizeDrag,
+                    onDrag = { dx, dy -> onResizeDrag(-dx, -dy) },
+                    onEnd = onResizeEnd,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .offset(x = (-6).dp, y = (-6).dp)
+                )
+                ResizeHandle(
+                    onDrag = { dx, dy -> onResizeDrag(dx, -dy) },
+                    onEnd = onResizeEnd,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 6.dp, y = (-6).dp)
+                )
+                ResizeHandle(
+                    onDrag = { dx, dy -> onResizeDrag(-dx, dy) },
+                    onEnd = onResizeEnd,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .offset(x = (-6).dp, y = 6.dp)
+                )
+                ResizeHandle(
+                    onDrag = { dx, dy -> onResizeDrag(dx, dy) },
                     onEnd = onResizeEnd,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)

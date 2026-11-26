@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -70,12 +71,24 @@ fun CarouselDockBar(
     onReorder: (List<String>) -> Unit,
     modifier: Modifier = Modifier,
     scale: Float = DockDefaults.DEFAULT_SCALE,
-    uiScale: Float = 1f
+    uiScale: Float = 1f,
+    dockWidth: Float = 1f,
+    onDockWidthChange: (Float) -> Unit = {},
+    onPanelScaleChange: (Float) -> Unit = {}
 ) {
     val panelHeight = DockDefaults.panelHeight(scale)
     // Размер иконки задаётся только panelScale, а не общим uiScale.
     val iconSize = maxOf(panelHeight - 36.dp, 28.dp) / uiScale.coerceAtLeast(0.01f)
     val shape = RoundedCornerShape(panelHeight * 0.38f)
+
+    // Растягивание дока: ширина меняет только ширину, высота — panelsScale,
+    // поэтому иконки остаются квадратными и не «плывут».
+    var dockWidthPx by remember { mutableIntStateOf(1) }
+    var resizing by remember { mutableStateOf(false) }
+    val currentWidth by rememberUpdatedState(dockWidth)
+    val currentScale by rememberUpdatedState(scale)
+    val setWidth by rememberUpdatedState(onDockWidthChange)
+    val setPanelScale by rememberUpdatedState(onPanelScaleChange)
 
     val listState = rememberLazyListState()
     val density = LocalDensity.current
@@ -108,9 +121,31 @@ fun CarouselDockBar(
         if (draggedKey == null) snapToCenter(listState)
     }
 
+    Box(
+        modifier = modifier
+            .onSizeChanged { dockWidthPx = it.width.coerceAtLeast(1) }
+            .pointerInput(Unit) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { resizing = true },
+                    onDrag = { change, amount ->
+                        change.consume()
+                        // Док растягивается от центра: дельта с обеих сторон => x2.
+                        setWidth(
+                            (currentWidth + amount.x * 2f / dockWidthPx).coerceIn(0.45f, 1f)
+                        )
+                        setPanelScale(
+                            (currentScale - amount.y / 420f).coerceIn(0.75f, 1.35f)
+                        )
+                    },
+                    onDragEnd = { resizing = false },
+                    onDragCancel = { resizing = false }
+                )
+            }
+    ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
+        modifier = Modifier
+            .fillMaxWidth()
             .height(panelHeight)
             .clip(shape)
             .background(Color(0x40080A10))
@@ -197,6 +232,17 @@ fun CarouselDockBar(
             accent = Color(0xFF8E8E93),
             iconSize = iconSize,
             onClick = onOpenSettings
+        )
+    }
+
+        // Полоса-ручка: зажмите док и тяните влево/вправо (ширина) или вверх/вниз (высота).
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 4.dp)
+                .size(width = 36.dp, height = 4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(if (resizing) Color(0xFF0A84FF) else Color.White.copy(alpha = 0.22f))
         )
     }
 }

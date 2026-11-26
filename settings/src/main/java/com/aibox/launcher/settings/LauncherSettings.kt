@@ -43,6 +43,10 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
         private set
 
+    /** Ширина дока относительно доступного места: меняется растягиванием долгим нажатием. */
+    var dockWidth by mutableFloatStateOf(prefs.getFloat(K_DOCK_WIDTH, 1f).coerceIn(0.45f, 1f))
+        private set
+
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
@@ -200,6 +204,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_QUICK, quickScale).apply()
     }
 
+    fun updateDockWidth(value: Float) {
+        dockWidth = value.coerceIn(0.45f, 1f)
+        prefs.edit().putFloat(K_DOCK_WIDTH, dockWidth).apply()
+    }
+
     /** Возвращает все размеры к значениям по умолчанию. */
     fun resetSizes() {
         updateUiScale(DEFAULT_UI_SCALE)
@@ -209,6 +218,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updatePanelScale(1f)
         updateIconScale(1f)
         updateClockScale(1f)
+        updateDockWidth(1f)
     }
 
     fun updateSkyPrecipitation(value: Boolean) {
@@ -259,6 +269,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_STATUS = "status_scale"
         const val K_WIDGET = "widget_scale"
         const val K_QUICK = "quick_scale"
+        const val K_DOCK_WIDTH = "dock_width"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"

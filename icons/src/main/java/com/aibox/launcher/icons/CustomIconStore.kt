@@ -10,7 +10,10 @@ import androidx.compose.runtime.setValue
 import java.io.File
 import kotlin.math.min
 
-/** Свои иконки приложений: картинка обрезается до квадрата и хранится в памяти лаунчера. */
+/**
+ * Свои иконки приложений и библиотека скачанных иконок.
+ * Картинка обрезается до квадрата и хранится в памяти лаунчера.
+ */
 object CustomIconStore {
 
     /** Растёт при каждом изменении — по нему иконки на экране перерисовываются. */
@@ -20,23 +23,71 @@ object CustomIconStore {
     private fun dir(context: Context): File =
         File(context.filesDir, "custom_icons").apply { mkdirs() }
 
+    private fun libraryDir(context: Context): File =
+        File(context.filesDir, "icon_library").apply { mkdirs() }
+
     fun file(context: Context, packageName: String): File =
         File(dir(context), "$packageName.png")
 
     fun has(context: Context, packageName: String): Boolean = file(context, packageName).exists()
 
+    /** Скачанные пользователем иконки, сначала новые. */
+    fun library(context: Context): List<File> =
+        libraryDir(context).listFiles { f -> f.isFile && f.name.endsWith(".png") }
+            ?.sortedByDescending { it.lastModified() }
+            ?: emptyList()
+
+    /** Добавляет выбранный файл в библиотеку, но ещё не применяет его к приложению. */
+    fun importToLibrary(context: Context, uri: Uri): File? = runCatching {
+        val bitmap = decode(context, uri) ?: return@runCatching null
+        val target = File(libraryDir(context), "icon_${System.currentTimeMillis()}.png")
+        save(target, bitmap)
+        target
+    }.getOrNull()
+
+    fun deleteFromLibrary(context: Context, file: File) {
+        file.delete()
+    }
+
     /** Вызывать не из главного потока. */
     fun set(context: Context, packageName: String, uri: Uri): Boolean = runCatching {
+        val bitmap = decode(context, uri) ?: return@runCatching false
+        save(file(context, packageName), bitmap)
+        changed(packageName)
+        true
+    }.getOrDefault(false)
+
+    /** Применить иконку из библиотеки к приложению. */
+    fun setFromLibrary(context: Context, packageName: String, source: File): Boolean = runCatching {
+        val bitmap = BitmapFactory.decodeFile(source.path) ?: return@runCatching false
+        save(file(context, packageName), bitmap)
+        changed(packageName)
+        true
+    }.getOrDefault(false)
+
+    fun clear(context: Context, packageName: String) {
+        file(context, packageName).delete()
+        changed(packageName)
+    }
+
+    private fun changed(packageName: String) {
+        AppIconCache.remove(packageName)
+        version += 1
+    }
+
+    private fun decode(context: Context, uri: Uri): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
         var sample = 1
         while (min(bounds.outWidth, bounds.outHeight) / sample > 768) sample *= 2
 
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
-        val source = context.contentResolver.openInputStream(uri)?.use {
+        return context.contentResolver.openInputStream(uri)?.use {
             BitmapFactory.decodeStream(it, null, options)
-        } ?: return@runCatching false
+        }
+    }
 
+    private fun save(target: File, source: Bitmap) {
         val side = min(source.width, source.height)
         val square = Bitmap.createBitmap(
             source,
@@ -46,16 +97,6 @@ object CustomIconStore {
             side
         )
         val scaled = Bitmap.createScaledBitmap(square, 192, 192, true)
-        file(context, packageName).outputStream().use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) }
-
-        AppIconCache.remove(packageName)
-        version += 1
-        true
-    }.getOrDefault(false)
-
-    fun clear(context: Context, packageName: String) {
-        file(context, packageName).delete()
-        AppIconCache.remove(packageName)
-        version += 1
+        target.outputStream().use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }
 }
