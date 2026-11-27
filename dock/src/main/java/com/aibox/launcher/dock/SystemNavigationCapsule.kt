@@ -73,7 +73,7 @@ private fun CapsuleButton(
             .clip(CircleShape)
             .background(DockDefaults.HotkeyButtonBackground)
             .fluidGlassSurface(CircleShape, interactionSource, strength = 1.2f)
-            .clickable(interactionSource = interactionSource, onClick = onClick)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
     ) {
         Icon(
             imageVector = icon,
