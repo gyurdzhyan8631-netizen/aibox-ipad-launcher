@@ -517,6 +517,10 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                         nowMinutes = nowMinutes,
                         sunriseMin = sunTimes?.first ?: 390,
                         sunsetMin = sunTimes?.second ?: 1110,
+                        rotationSeconds = settings.sceneStaySeconds,
+                        rotate = settings.sceneRotation && settings.dynamicSceneSelected == null,
+                        glassClock = settings.sceneGlassClock,
+                        clockScale = settings.clockScale,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -560,7 +564,9 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     compact = compact,
                     scale = settings.clockScale,
                     style = settings.clockStyle,
-                    fontFamily = LauncherFonts.family(settings.clockFontId)
+                    fontFamily = LauncherFonts.family(settings.clockFontId),
+                    showTime = !(settings.sceneGlassClock && settings.dynamicWallpaper &&
+                        pagerState.currentPage == 0)
                 )
 
                 Row(
@@ -724,7 +730,8 @@ private fun ClockHeader(
     compact: Boolean,
     scale: Float,
     style: ClockStyle,
-    fontFamily: FontFamily
+    fontFamily: FontFamily,
+    showTime: Boolean = true
 ) {
     val ru = Locale("ru")
     val smallSize = (if (compact) 14f else 16f).sp
@@ -780,6 +787,7 @@ private fun ClockHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+        if (showTime) {
         when (style) {
             ClockStyle.LIGHT, ClockStyle.BOLD -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -842,6 +850,14 @@ private fun ClockHeader(
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        } else {
+            Text(
+                text = "$weekday · $date",
+                style = dateStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

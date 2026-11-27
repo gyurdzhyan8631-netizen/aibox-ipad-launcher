@@ -145,6 +145,18 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     val dynamicSceneSelected: DynamicScene?
         get() = if (dynamicSceneId == "auto") null else DynamicScene.fromId(dynamicSceneId)
 
+    /** Автоматическая ротация сцен на первом столе (как в tvOS-Launcher). */
+    var sceneRotation by mutableStateOf(prefs.getBoolean(K_SCENE_ROTATION, true))
+        private set
+
+    /** Сколько секунд держится сцена перед crossfade: 10/15/20/30/45/60/120. */
+    var sceneStaySeconds by mutableStateOf(prefs.getInt(K_SCENE_SECONDS, 60))
+        private set
+
+    /** Стеклянные часы внутри сцены вместо обычного заголовка. */
+    var sceneGlassClock by mutableStateOf(prefs.getBoolean(K_SCENE_GLASS_CLOCK, false))
+        private set
+
     /** Новая iPad-система: позиции виджетов хранятся в ячейках сетки 6×10. */
     var widgetBoard1 by mutableStateOf(
         parseBoard(prefs.getString(K_BOARD1, null), defaultWidgetBoard(1))
@@ -242,6 +254,21 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateDynamicSceneId(value: String) {
         dynamicSceneId = if (value == "auto" || DynamicScene.entries.any { it.id == value }) value else "auto"
         prefs.edit().putString(K_DYNAMIC_SCENE_ID, dynamicSceneId).apply()
+    }
+
+    fun updateSceneRotation(value: Boolean) {
+        sceneRotation = value
+        prefs.edit().putBoolean(K_SCENE_ROTATION, value).apply()
+    }
+
+    fun updateSceneStaySeconds(value: Int) {
+        sceneStaySeconds = if (value in intArrayOf(10, 15, 20, 30, 45, 60, 120)) value else 60
+        prefs.edit().putInt(K_SCENE_SECONDS, sceneStaySeconds).apply()
+    }
+
+    fun updateSceneGlassClock(value: Boolean) {
+        sceneGlassClock = value
+        prefs.edit().putBoolean(K_SCENE_GLASS_CLOCK, value).apply()
     }
 
     fun widgetBoard(page: Int): List<WidgetItem> = if (page == 1) widgetBoard1 else widgetBoard2
@@ -415,6 +442,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_DYNAMIC_WALLPAPER = "dynamic_scene_wallpaper"
         const val K_DYNAMIC_SCENE_PACK = "dynamic_scene_pack"
         const val K_DYNAMIC_SCENE_ID = "dynamic_scene_id"
+        const val K_SCENE_ROTATION = "scene_rotation"
+        const val K_SCENE_SECONDS = "scene_seconds"
+        const val K_SCENE_GLASS_CLOCK = "scene_glass_clock"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"

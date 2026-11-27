@@ -256,6 +256,43 @@ internal fun HomeSection(
                 )
             }
         )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Refresh,
+            iconColor = Color(0xFF30D158),
+            title = "Ротация сцен",
+            subtitle = "Авто переключает 6 состояний с плавным переходом 1,6 с",
+            checked = settings.sceneRotation,
+            onCheckedChange = { settings.updateSceneRotation(it) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.AccessTime,
+            iconColor = Color(0xFF0A84FF),
+            title = "Время показа сцены",
+            value = "${settings.sceneStaySeconds} с",
+            subtitle = "Сколько секунд держится сцена до следующего перехода",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Время показа сцены",
+                        options = listOf(10, 15, 20, 30, 45, 60, 120)
+                            .map { PickerOption(it.toString(), "$it с") },
+                        selectedKey = settings.sceneStaySeconds.toString(),
+                        onSelect = { key -> settings.updateSceneStaySeconds(key.toIntOrNull() ?: 60) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Стеклянные часы на обоех",
+            subtitle = "Часы залиты запечённой текстурой сцены — как в tvOS-лаунчере",
+            checked = settings.sceneGlassClock,
+            onCheckedChange = { settings.updateSceneGlassClock(it) }
+        )
     }
 
     SectionTitle("Рабочие столы")
@@ -1502,6 +1539,43 @@ internal fun WallpaperSection(
                     )
                 )
             }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Refresh,
+            iconColor = Color(0xFF30D158),
+            title = "Ротация сцен",
+            subtitle = "6 состояний с плавным переходом 1,6 с",
+            checked = settings.sceneRotation,
+            onCheckedChange = { settings.updateSceneRotation(it) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.AccessTime,
+            iconColor = Color(0xFF0A84FF),
+            title = "Время показа сцены",
+            value = "${settings.sceneStaySeconds} с",
+            subtitle = "Интервал до следующей сцены",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Время показа сцены",
+                        options = listOf(10, 15, 20, 30, 45, 60, 120)
+                            .map { PickerOption(it.toString(), "$it с") },
+                        selectedKey = settings.sceneStaySeconds.toString(),
+                        onSelect = { key -> settings.updateSceneStaySeconds(key.toIntOrNull() ?: 60) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Стеклянные часы на обоех",
+            subtitle = "Заливка чась текстурой сцены вместо обычного заголовка",
+            checked = settings.sceneGlassClock,
+            onCheckedChange = { settings.updateSceneGlassClock(it) }
         )
     }
     HintText(
