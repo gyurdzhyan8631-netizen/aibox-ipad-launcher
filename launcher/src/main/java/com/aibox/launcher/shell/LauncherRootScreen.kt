@@ -502,7 +502,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             val pageNumber = page + 1
-            val scene = dynamicSceneFor(
+            val scene = settings.dynamicSceneSelected ?: dynamicSceneFor(
                 weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
                 nowMinutes = nowMinutes,
                 sunriseMin = sunTimes?.first ?: 390,
@@ -513,6 +513,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 if (pageNumber == 1 && settings.dynamicWallpaper) {
                     DynamicSceneWallpaper(
                         scene = scene,
+                        pack = settings.dynamicScenePack,
                         nowMinutes = nowMinutes,
                         sunriseMin = sunTimes?.first ?: 390,
                         sunsetMin = sunTimes?.second ?: 1110,

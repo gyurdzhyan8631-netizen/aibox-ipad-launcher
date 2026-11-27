@@ -8,6 +8,8 @@ import androidx.compose.runtime.setValue
 import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.ui.LauncherFonts
+import com.aibox.launcher.wallpaper.DynamicScene
+import com.aibox.launcher.wallpaper.DynamicScenePack
 import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
 import com.aibox.launcher.widgets.WidgetType
@@ -120,6 +122,19 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var dynamicWallpaper by mutableStateOf(prefs.getBoolean(K_DYNAMIC_WALLPAPER, true))
         private set
 
+    /** Набор обоев, который пользователь выбрал в лаунчере: горы, город или лес. */
+    var dynamicScenePack by mutableStateOf(
+        DynamicScenePack.fromId(prefs.getString(K_DYNAMIC_SCENE_PACK, null))
+    )
+        private set
+
+    /** "auto" — состояние по погоде, иначе выбранная пользователем сцена. */
+    var dynamicSceneId by mutableStateOf(prefs.getString(K_DYNAMIC_SCENE_ID, "auto") ?: "auto")
+        private set
+
+    val dynamicSceneSelected: DynamicScene?
+        get() = if (dynamicSceneId == "auto") null else DynamicScene.fromId(dynamicSceneId)
+
     /** Новая iPad-система: позиции виджетов хранятся в ячейках сетки 6×10. */
     var widgetBoard1 by mutableStateOf(
         parseBoard(prefs.getString(K_BOARD1, null), defaultWidgetBoard(1))
@@ -207,6 +222,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateDynamicWallpaper(value: Boolean) {
         dynamicWallpaper = value
         prefs.edit().putBoolean(K_DYNAMIC_WALLPAPER, value).apply()
+    }
+
+    fun updateDynamicScenePack(value: DynamicScenePack) {
+        dynamicScenePack = value
+        prefs.edit().putString(K_DYNAMIC_SCENE_PACK, value.id).apply()
+    }
+
+    fun updateDynamicSceneId(value: String) {
+        dynamicSceneId = if (value == "auto" || DynamicScene.entries.any { it.id == value }) value else "auto"
+        prefs.edit().putString(K_DYNAMIC_SCENE_ID, dynamicSceneId).apply()
     }
 
     fun widgetBoard(page: Int): List<WidgetItem> = if (page == 1) widgetBoard1 else widgetBoard2
@@ -364,6 +389,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_CITY = "weather_city"
         const val K_WEATHER_SOURCE = "weather_source"
         const val K_DYNAMIC_WALLPAPER = "dynamic_scene_wallpaper"
+        const val K_DYNAMIC_SCENE_PACK = "dynamic_scene_pack"
+        const val K_DYNAMIC_SCENE_ID = "dynamic_scene_id"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"

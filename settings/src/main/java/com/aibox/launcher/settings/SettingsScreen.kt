@@ -191,7 +191,8 @@ fun SettingsScreen(
                         when (current) {
                             SettingsSection.HOME -> HomeSection(
                                 settings = settings,
-                                weatherStatus = weatherStatus
+                                weatherStatus = weatherStatus,
+                                onPick = { picker = it }
                             )
                             SettingsSection.WIFI -> WifiSection()
                             SettingsSection.BLUETOOTH -> BluetoothSection()
@@ -205,7 +206,11 @@ fun SettingsScreen(
                             )
                             SettingsSection.SIZES -> SizesSection(settings)
                             SettingsSection.FONTS -> FontSection(settings, onPick = { picker = it })
-                            SettingsSection.WALLPAPERS -> WallpaperSection(settings, onOpenSection = { section = it })
+                            SettingsSection.WALLPAPERS -> WallpaperSection(
+                                settings,
+                                onOpenSection = { section = it },
+                                onPick = { picker = it }
+                            )
                             SettingsSection.ICONS -> CustomIconsSection(settings, apps, onPick = { picker = it })
                             SettingsSection.APPS -> AppsSection(settings, apps, onPick = { picker = it })
                             SettingsSection.SYSTEM -> SystemSection()

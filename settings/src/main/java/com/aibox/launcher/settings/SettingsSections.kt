@@ -101,6 +101,7 @@ import com.aibox.launcher.icons.BuiltinIcons
 import com.aibox.launcher.icons.CustomIconStore
 import com.aibox.launcher.icons.rememberAppIcon
 import com.aibox.launcher.wallpaper.DynamicScene
+import com.aibox.launcher.wallpaper.DynamicScenePack
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -150,7 +151,8 @@ private fun rememberNetSummary(context: Context): State<NetSummary> =
 @Composable
 internal fun HomeSection(
     settings: LauncherSettings,
-    weatherStatus: String
+    weatherStatus: String,
+    onPick: (PickerRequest) -> Unit
 ) {
     SectionTitle("Погода и динамические обои")
     SettingsGroup {
@@ -213,9 +215,46 @@ internal fun HomeSection(
             icon = Icons.Rounded.WbSunny,
             iconColor = Color(0xFFFF9F0A),
             title = "Динамические обои на 1-м столе",
-            subtitle = "6 сцен: рассвет, день, ночь, дождь, снег, ветер — по погоде и времени суток",
+            subtitle = "3 набора × 6 состояний: горы, город, лес — по погоде и времени суток",
             checked = settings.dynamicWallpaper,
             onCheckedChange = { settings.updateDynamicWallpaper(it) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.ImageIcon,
+            iconColor = Color(0xFF30B0C7),
+            title = "Вид обоев",
+            value = settings.dynamicScenePack.title,
+            subtitle = settings.dynamicScenePack.subtitle,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Вид обоев первого стола",
+                        options = DynamicScenePack.entries.map { PickerOption(it.id, it.title) },
+                        selectedKey = settings.dynamicScenePack.id,
+                        onSelect = { key -> settings.updateDynamicScenePack(DynamicScenePack.fromId(key)) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Palette,
+            iconColor = Color(0xFF5E5CE6),
+            title = "Состояние обоев",
+            value = settings.dynamicSceneSelected?.title ?: "Авто (по погоде)",
+            subtitle = "Авто выбирает сцену по погоде и восходу/закату, или закрепите любую вручную",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Состояние динамических обоев",
+                        options = listOf(PickerOption("auto", "Авто (по погоде)")) +
+                            DynamicScene.entries.map { PickerOption(it.id, it.title) },
+                        selectedKey = settings.dynamicSceneId,
+                        onSelect = { key -> settings.updateDynamicSceneId(key) }
+                    )
+                )
+            }
         )
     }
 
@@ -1307,7 +1346,11 @@ internal fun AboutSection() {
 // ---------------------------------------------------------------- Обои
 
 @Composable
-internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (SettingsSection) -> Unit) {
+internal fun WallpaperSection(
+    settings: LauncherSettings,
+    onOpenSection: (SettingsSection) -> Unit,
+    onPick: (PickerRequest) -> Unit
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf(WallpaperStore.list(context)) }
@@ -1413,11 +1456,57 @@ internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (Settin
         )
     }
 
-    SectionTitle("Динамические сцены 1-го стола")
+    SectionTitle("Динамические обои 1-го стола")
+    SettingsGroup {
+        SwitchRow(
+            icon = Icons.Rounded.WbSunny,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Показывать на первом столе",
+            subtitle = "Реалистичные сцены поверх выбранных обоев",
+            checked = settings.dynamicWallpaper,
+            onCheckedChange = { settings.updateDynamicWallpaper(it) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.ImageIcon,
+            iconColor = Color(0xFF30B0C7),
+            title = "Вид: горы / город / лес",
+            value = settings.dynamicScenePack.title,
+            subtitle = settings.dynamicScenePack.subtitle,
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Вид обоев первого стола",
+                        options = DynamicScenePack.entries.map { PickerOption(it.id, it.title) },
+                        selectedKey = settings.dynamicScenePack.id,
+                        onSelect = { key -> settings.updateDynamicScenePack(DynamicScenePack.fromId(key)) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Palette,
+            iconColor = Color(0xFF5E5CE6),
+            title = "Состояние",
+            value = settings.dynamicSceneSelected?.title ?: "Авто (по погоде)",
+            subtitle = "Рассвет, день, ночь, дождь, снег или ветер",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Состояние динамических обоев",
+                        options = listOf(PickerOption("auto", "Авто (по погоде)")) +
+                            DynamicScene.entries.map { PickerOption(it.id, it.title) },
+                        selectedKey = settings.dynamicSceneId,
+                        onSelect = { key -> settings.updateDynamicSceneId(key) }
+                    )
+                )
+            }
+        )
+    }
     HintText(
-        "Сменяются автоматически: " +
-            DynamicScene.entries.joinToString(" · ") { it.title } +
-            ". Состояние выбирается по погоде и восходу/закату для вашего местоположения."
+        "В авто-режиме сцена меняется по погоде Open-Meteo и реальному времени восхода/заката. " +
+            "Второй рабочий стол остаётся с обычными обоями."
     )
 
     SectionTitle("Мои обои")
