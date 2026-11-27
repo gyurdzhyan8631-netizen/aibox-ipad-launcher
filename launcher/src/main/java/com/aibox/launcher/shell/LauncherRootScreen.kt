@@ -1,11 +1,15 @@
 package com.aibox.launcher.shell
 
+import android.Manifest
 import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
+import android.location.Location
 import android.net.Uri
 import android.provider.AlarmClock
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +36,7 @@ import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -71,11 +76,15 @@ import com.aibox.launcher.icons.InstalledAppsRepository
 import com.aibox.launcher.settings.ClockStyle
 import com.aibox.launcher.settings.LauncherSettings
 import com.aibox.launcher.settings.SettingsScreen
+import com.aibox.launcher.settings.WeatherSource
 import com.aibox.launcher.system.SystemActionsHandler
+import com.aibox.launcher.wallpaper.DynamicSceneWallpaper
 import com.aibox.launcher.wallpaper.WallpaperLayer
+import com.aibox.launcher.wallpaper.dynamicSceneFor
 import com.aibox.launcher.widgets.WidgetType
 import com.aibox.launcher.widgets.WidgetWeatherInfo
 import com.aibox.launcher.weather.CityNotFoundException
+import com.aibox.launcher.weather.GpsLocationSource
 import com.aibox.launcher.weather.WeatherRepository
 import com.aibox.launcher.weather.SunCalc
 import com.aibox.launcher.weather.ageText
@@ -127,22 +136,90 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
 
     // --- Погода: офлайн-приоритет (кэш на устройстве + фоновое обновление) ---
     val weatherRepo = remember { WeatherRepository(context) }
+    val gpsSource = remember { GpsLocationSource(context) }
     var weather by remember { mutableStateOf(weatherRepo.cached()) }
     var weatherError by remember { mutableStateOf<String?>(null) }
+    var location by remember { mutableStateOf<Location?>(null) }
+    var placeName by remember { mutableStateOf("") }
+    var gpsDenied by remember { mutableStateOf(false) }
+    var permissionTick by remember { mutableIntStateOf(0) }
     val city = settings.city
+    val useGps = settings.weatherSource == WeatherSource.GPS
 
-    LaunchedEffect(city) {
-        while (city.isNotBlank()) {
-            val result = weatherRepo.refresh(city)
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (gpsSource.hasPermission()) {
+            gpsDenied = false
+            permissionTick++
+        } else {
+            gpsDenied = true
+        }
+    }
+
+    LaunchedEffect(useGps) {
+        if (useGps && !gpsSource.hasPermission()) {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    DisposableEffect(useGps, permissionTick) {
+        if (useGps && gpsSource.hasPermission()) {
+            val initial = gpsSource.currentLocation()
+            location = initial
+            if (initial != null) placeName = gpsSource.describe(initial)
+            gpsSource.startUpdates { newLocation ->
+                location = newLocation
+                placeName = gpsSource.describe(newLocation)
+            }
+        } else {
+            gpsSource.stopUpdates()
+            if (!useGps) {
+                location = null
+                placeName = ""
+            }
+        }
+        onDispose { gpsSource.stopUpdates() }
+    }
+
+    // Ключ меняется только при заметном смещении (примерно 50 м), чтобы не дергать сеть каждый кадр.
+    val locationStamp = location?.let {
+        "${(it.latitude * 1000).toInt()}:${(it.longitude * 1000).toInt()}"
+    } ?: ""
+
+    LaunchedEffect(city, useGps, locationStamp, permissionTick) {
+        while (true) {
+            val result = if (useGps) {
+                val current = location
+                if (current == null) {
+                    weatherError = if (gpsDenied) "нет разрешения GPS" else "ищу местоположение"
+                    delay(10_000L)
+                    continue
+                }
+                weatherRepo.refreshAt(
+                    current.latitude,
+                    current.longitude,
+                    placeName.ifBlank { gpsSource.describe(current) }
+                )
+            } else {
+                if (city.isBlank()) break
+                weatherRepo.refresh(city)
+            }
+
             result.onSuccess {
                 weather = it
                 weatherError = null
             }
             result.onFailure {
-                weatherError = if (it is CityNotFoundException) {
-                    "город не найден"
-                } else {
-                    "нет связи с сервером погоды"
+                weatherError = when {
+                    it is CityNotFoundException -> "город не найден"
+                    useGps -> "нет связи с сервером погоды"
+                    else -> "нет связи с сервером погоды"
                 }
             }
             // успех — раз в 30 минут, ошибка — повтор через 5 минут
@@ -150,14 +227,29 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         }
     }
 
-    val shownWeather = weather?.takeIf { it.query.equals(city.trim(), ignoreCase = true) }
+    val shownWeather = weather?.takeIf {
+        if (useGps) {
+            it.query == WeatherRepository.GPS_QUERY
+        } else {
+            it.query.equals(city.trim(), ignoreCase = true)
+        }
+    }
     val nowMillis = System.currentTimeMillis()
     val errorText = weatherError
+    val gpsLine = when {
+        !useGps -> ""
+        gpsDenied -> " · GPS: нет разрешения"
+        location == null -> " · GPS: ищу местоположение"
+        else -> " · GPS: ${placeName.ifBlank { "моё местоположение" }}"
+    }
     val weatherStatus = when {
-        city.isBlank() -> "Город не указан — погода не обновляется."
+        useGps && gpsDenied -> "Разрешите доступ к геолокации, чтобы обновить погоду и обои."
+        useGps && shownWeather == null -> "Определяю местоположение и погоду…"
+        city.isBlank() && !useGps -> "Город не указан — погода не обновляется."
         shownWeather != null -> {
             val base = "${shownWeather.cityName} · обновлено ${ageText(shownWeather.fetchedAtMillis, nowMillis)}"
-            if (errorText != null) "$base · $errorText" else base
+            val withGps = "$base$gpsLine"
+            if (errorText != null) "$withGps · $errorText" else withGps
         }
         errorText != null -> "Ошибка: $errorText"
         else -> "Загрузка…"
@@ -297,6 +389,8 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         weatherRepo.coordinates()?.let { (lat, lon) -> SunCalc.sunriseSunset(lat, lon, today) }
     }
 
+    val nowMinutes = now.hour * 60 + now.minute
+
     val dayPeriod = when (now.hour) {
         in 5..10 -> DayPeriod.MORNING
         in 11..17 -> DayPeriod.DAY
@@ -396,7 +490,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             dayPeriod = dayPeriod,
             weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
             theme = settings.theme,
-            nowMinutes = now.hour * 60 + now.minute,
+            nowMinutes = nowMinutes,
             sunriseMin = sunTimes?.first ?: 390,
             sunsetMin = sunTimes?.second ?: 1110,
             precipitation = settings.skyPrecipitation
@@ -408,23 +502,41 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             val pageNumber = page + 1
-            WidgetBoard(
-                items = settings.widgetBoard(pageNumber),
-                editMode = editMode,
-                weather = weatherInfo,
-                onEnterEdit = {
-                    showQuickPanel = false
-                    showAppDrawer = false
-                    editMode = true
-                },
-                onMove = { id, column, row -> settings.moveWidget(pageNumber, id, column, row) },
-                onResize = { id, size -> settings.resizeWidget(pageNumber, id, size) },
-                onRemove = { id -> settings.removeWidget(pageNumber, id) },
-                onAdd = { showWidgetGallery = true },
-                onOpenWidget = openWidget,
-                topPadding = pageTop,
-                bottomPadding = pageBottom
+            val scene = dynamicSceneFor(
+                weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
+                nowMinutes = nowMinutes,
+                sunriseMin = sunTimes?.first ?: 390,
+                sunsetMin = sunTimes?.second ?: 1110
             )
+            Box(modifier = Modifier.fillMaxSize()) {
+                // Динамические обои принадлежат только первому столу; второй остаётся с обычными.
+                if (pageNumber == 1 && settings.dynamicWallpaper) {
+                    DynamicSceneWallpaper(
+                        scene = scene,
+                        nowMinutes = nowMinutes,
+                        sunriseMin = sunTimes?.first ?: 390,
+                        sunsetMin = sunTimes?.second ?: 1110,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                WidgetBoard(
+                    items = settings.widgetBoard(pageNumber),
+                    editMode = editMode,
+                    weather = weatherInfo,
+                    onEnterEdit = {
+                        showQuickPanel = false
+                        showAppDrawer = false
+                        editMode = true
+                    },
+                    onMove = { id, column, row -> settings.moveWidget(pageNumber, id, column, row) },
+                    onResize = { id, size -> settings.resizeWidget(pageNumber, id, size) },
+                    onRemove = { id -> settings.removeWidget(pageNumber, id) },
+                    onAdd = { showWidgetGallery = true },
+                    onOpenWidget = openWidget,
+                    topPadding = pageTop,
+                    bottomPadding = pageBottom
+                )
+            }
         }
 
         // 4. Шапка и нижние панели лежат поверх рабочих столов

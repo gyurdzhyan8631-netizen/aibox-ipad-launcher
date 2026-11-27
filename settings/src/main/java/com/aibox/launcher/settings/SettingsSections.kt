@@ -100,6 +100,7 @@ import com.aibox.launcher.icons.AppIconPreview
 import com.aibox.launcher.icons.BuiltinIcons
 import com.aibox.launcher.icons.CustomIconStore
 import com.aibox.launcher.icons.rememberAppIcon
+import com.aibox.launcher.wallpaper.DynamicScene
 import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -151,7 +152,7 @@ internal fun HomeSection(
     settings: LauncherSettings,
     weatherStatus: String
 ) {
-    SectionTitle("Город для погоды и обоев")
+    SectionTitle("Погода и динамические обои")
     SettingsGroup {
         var draft by remember(settings.city) { mutableStateOf(settings.city) }
         Column(
@@ -191,6 +192,33 @@ internal fun HomeSection(
         }
     }
 
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.Navigation,
+            iconColor = Color(0xFF0A84FF),
+            title = "Источник погоды",
+            value = settings.weatherSource.title,
+            subtitle = when (settings.weatherSource) {
+                WeatherSource.GPS -> "Город и погода определяются по GPS. Разрешение запросит лаунчер"
+                WeatherSource.CITY -> "Используется город, указанный выше"
+            },
+            onClick = {
+                settings.updateWeatherSource(
+                    if (settings.weatherSource == WeatherSource.CITY) WeatherSource.GPS else WeatherSource.CITY
+                )
+            }
+        )
+        RowDivider()
+        SwitchRow(
+            icon = Icons.Rounded.WbSunny,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Динамические обои на 1-м столе",
+            subtitle = "6 сцен: рассвет, день, ночь, дождь, снег, ветер — по погоде и времени суток",
+            checked = settings.dynamicWallpaper,
+            onCheckedChange = { settings.updateDynamicWallpaper(it) }
+        )
+    }
+
     SectionTitle("Рабочие столы")
     SettingsGroup {
         SettingsRow(
@@ -198,7 +226,7 @@ internal fun HomeSection(
             iconColor = SettingsColors.accent,
             title = "Система виджетов",
             value = "iPad",
-            subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4, умный стек",
+            subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4 / 6×4, умный стек",
             showChevron = false
         )
         RowDivider()
@@ -210,7 +238,7 @@ internal fun HomeSection(
             onClick = { settings.resetWidgetBoards() }
         )
     }
-    HintText("Добавляйте виджеты кнопкой «+» в режиме правки. Перетаскивайте пальцем, а угловую стрелку используйте для смены размера.")
+    HintText("Добавляйте виджеты кнопкой «+» в режиме правки. Перетаскивайте пальцем, а кнопки «+» и «−» на виджете меняют его размер.")
 }
 
 // ---------------------------------------------------------------- Wi-Fi / Bluetooth
@@ -1384,6 +1412,13 @@ internal fun WallpaperSection(settings: LauncherSettings, onOpenSection: (Settin
             }
         )
     }
+
+    SectionTitle("Динамические сцены 1-го стола")
+    HintText(
+        "Сменяются автоматически: " +
+            DynamicScene.entries.joinToString(" · ") { it.title } +
+            ". Состояние выбирается по погоде и восходу/закату для вашего местоположения."
+    )
 
     SectionTitle("Мои обои")
     if (items.isEmpty()) {

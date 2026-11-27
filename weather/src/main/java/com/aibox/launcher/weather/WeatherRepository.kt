@@ -47,23 +47,40 @@ class WeatherRepository(context: Context) {
         runCatching {
             val query = city.trim()
             val place = resolvePlace(query)
-
-            val url = "https://api.open-meteo.com/v1/forecast" +
-                "?latitude=${place.lat}&longitude=${place.lon}" +
-                "&current=temperature_2m,weather_code,is_day&timezone=auto"
-            val current = JSONObject(httpGet(url)).getJSONObject("current")
-
-            val snapshot = WeatherSnapshot(
-                query = query,
-                cityName = place.name,
-                tempC = current.getDouble("temperature_2m").roundToInt(),
-                condition = conditionFromWmoCode(current.getInt("weather_code")),
-                isDay = current.optInt("is_day", 1) == 1,
-                fetchedAtMillis = System.currentTimeMillis()
-            )
-            save(snapshot)
-            snapshot
+            fetch(place, query)
         }
+    }
+
+    /** Погода по координатам GPS: геокодер не нужен, имя места передаёт лаунчер. */
+    suspend fun refreshAt(lat: Double, lon: Double, placeName: String): Result<WeatherSnapshot> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val place = Place(
+                    name = placeName.ifBlank { "Моё местоположение" },
+                    lat = lat.toString(),
+                    lon = lon.toString()
+                )
+                savePlace(place)
+                fetch(place, GPS_QUERY)
+            }
+        }
+
+    private fun fetch(place: Place, query: String): WeatherSnapshot {
+        val url = "https://api.open-meteo.com/v1/forecast" +
+            "?latitude=${place.lat}&longitude=${place.lon}" +
+            "&current=temperature_2m,weather_code,is_day&timezone=auto"
+        val current = JSONObject(httpGet(url)).getJSONObject("current")
+
+        val snapshot = WeatherSnapshot(
+            query = query,
+            cityName = place.name,
+            tempC = current.getDouble("temperature_2m").roundToInt(),
+            condition = conditionFromWmoCode(current.getInt("weather_code")),
+            isDay = current.optInt("is_day", 1) == 1,
+            fetchedAtMillis = System.currentTimeMillis()
+        )
+        save(snapshot)
+        return snapshot
     }
 
     private data class Place(val name: String, val lat: String, val lon: String)
@@ -92,13 +109,17 @@ class WeatherRepository(context: Context) {
             lat = first.getDouble("latitude").toString(),
             lon = first.getDouble("longitude").toString()
         )
+        savePlace(place, query)
+        return place
+    }
+
+    private fun savePlace(place: Place, query: String = GPS_QUERY) {
         prefs.edit()
             .putString(KEY_PLACE_QUERY, query)
             .putString(KEY_PLACE_NAME, place.name)
             .putString(KEY_PLACE_LAT, place.lat)
             .putString(KEY_PLACE_LON, place.lon)
             .apply()
-        return place
     }
 
     private fun save(s: WeatherSnapshot) {
@@ -127,11 +148,13 @@ class WeatherRepository(context: Context) {
         }
     }
 
-    private companion object {
-        const val KEY_SNAPSHOT = "snapshot"
-        const val KEY_PLACE_QUERY = "place_query"
-        const val KEY_PLACE_NAME = "place_name"
-        const val KEY_PLACE_LAT = "place_lat"
-        const val KEY_PLACE_LON = "place_lon"
+    companion object {
+        /** Отметка в кэше, что погода получена по GPS, а не по введённому городу. */
+        const val GPS_QUERY = "@gps"
+        private const val KEY_SNAPSHOT = "snapshot"
+        private const val KEY_PLACE_QUERY = "place_query"
+        private const val KEY_PLACE_NAME = "place_name"
+        private const val KEY_PLACE_LAT = "place_lat"
+        private const val KEY_PLACE_LON = "place_lon"
     }
 }

@@ -28,6 +28,16 @@ enum class ClockStyle(val id: String, val title: String) {
     }
 }
 
+/** Откуда лаунчер берёт погоду для виджетов и динамических обоев. */
+enum class WeatherSource(val id: String, val title: String) {
+    CITY("city", "Город вручную"),
+    GPS("gps", "По GPS");
+
+    companion object {
+        fun fromId(id: String?): WeatherSource = entries.firstOrNull { it.id == id } ?: CITY
+    }
+}
+
 /**
  * Все настройки лаунчера. Значения хранятся в SharedPreferences и сразу применяются на экране
  * (это Compose-состояние).
@@ -102,6 +112,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var videoPackage by mutableStateOf(prefs.getString(K_VIDEO, "") ?: "")
         private set
     var city by mutableStateOf(prefs.getString(K_CITY, "") ?: "")
+        private set
+    var weatherSource by mutableStateOf(WeatherSource.fromId(prefs.getString(K_WEATHER_SOURCE, null)))
+        private set
+
+    /** Динамические обои из 6 сцен на первом рабочем столе. */
+    var dynamicWallpaper by mutableStateOf(prefs.getBoolean(K_DYNAMIC_WALLPAPER, true))
         private set
 
     /** Новая iPad-система: позиции виджетов хранятся в ячейках сетки 6×10. */
@@ -181,6 +197,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateCity(value: String) {
         city = value.trim()
         prefs.edit().putString(K_CITY, city).apply()
+    }
+
+    fun updateWeatherSource(value: WeatherSource) {
+        weatherSource = value
+        prefs.edit().putString(K_WEATHER_SOURCE, value.id).apply()
+    }
+
+    fun updateDynamicWallpaper(value: Boolean) {
+        dynamicWallpaper = value
+        prefs.edit().putBoolean(K_DYNAMIC_WALLPAPER, value).apply()
     }
 
     fun widgetBoard(page: Int): List<WidgetItem> = if (page == 1) widgetBoard1 else widgetBoard2
@@ -336,6 +362,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_WEATHER = "weather_package"
         const val K_VIDEO = "video_package"
         const val K_CITY = "weather_city"
+        const val K_WEATHER_SOURCE = "weather_source"
+        const val K_DYNAMIC_WALLPAPER = "dynamic_scene_wallpaper"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"
