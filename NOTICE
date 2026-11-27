@@ -1,9 +1,12 @@
 AI Box Car Launcher
 Copyright 2026 gyurdzhyan8631-netizen
 
-Visual styles for wallpaper scenes and glass widget cards in this project were
+Glass widget card styling and the earlier photo-scene wallpaper direction were
 adapted from tvOS-Launcher by gyurdzhyan8631-netizen,
 licensed under the Apache License, Version 2.0.
+
+The flat vector dynamic scenes in wallpaper/src/main/res/drawable/scene_flat_*.xml
+are original to this project.
 
 You may obtain a copy of the License at:
 

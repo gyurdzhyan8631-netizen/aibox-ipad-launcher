@@ -1318,7 +1318,7 @@ internal fun SystemSection() {
 // ---------------------------------------------------------------- О лаунчере
 
 @Composable
-internal fun AboutSection() {
+internal fun AboutSection(onOpenSection: (SettingsSection) -> Unit) {
     val context = LocalContext.current
     val config = LocalConfiguration.current
     val versionName = remember {
@@ -1329,6 +1329,10 @@ internal fun AboutSection() {
     SettingsGroup {
         SettingsRow(Icons.Rounded.Star, Color(0xFF8E8E93), "AI Box Car Launcher",
             value = versionName, showChevron = false)
+        RowDivider()
+        SettingsRow(Icons.Rounded.Code, Color(0xFF64D2FF), "Диагностика",
+            subtitle = "SoC, GPU, память, OpenGL ES и FPS",
+            onClick = { onOpenSection(SettingsSection.DIAGNOSTICS) })
         RowDivider()
         SettingsRow(Icons.Rounded.Info, Color(0xFF8E8E93), "Устройство",
             value = Build.MODEL, showChevron = false)

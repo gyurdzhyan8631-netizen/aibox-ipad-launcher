@@ -9,11 +9,13 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -23,33 +25,32 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.aibox.launcher.core.model.WeatherCondition
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 import kotlin.math.floor
 
 /**
  * Визуальный слой обоев первого стола.
  *
- * Стиль многослойных «живых» сцен (реальное фото + отдельный передний слой с параллаксом,
- * цветовая grading-подложка и мягкая затемняющая дымка) взят из tvOS-Launcher:
- * https://github.com/gyurdzhyan8631-netizen/tvOS-Launcher  (Apache License 2.0).
- *
- * Логика выбора сцены, GPS/погода и настройки не изменены — здесь только отрисовка.
+ * Единый стиль: flat art, минимализм, векторная графика. Все сцены — локальные
+ * VectorDrawable в res/drawable/scene_flat_*.xml, без фотографий и тяжёлых градиентов.
+ * Набор сцен и погодная логика не изменены — здесь только отрисовка.
  */
 enum class DynamicScenePack(val id: String, val title: String, val subtitle: String) {
     MOUNTAINS(
         "mountains",
         "Горы и храм",
-        "Горный хребет, туман в долине, река, храм и человек на скале"
+        "Плоские векторные горы, туман, река, храм и человек на скале"
     ),
     CITY(
         "city",
         "Город",
-        "Городская панорама, башня с часами, улица и огни окон"
+        "Плоский векторный город, башня с часами и огни окон"
     ),
     FOREST(
         "forest",
         "Лес",
-        "Лесистые холмы, озеро, изба, олени и свет в кронах"
+        "Плоский векторный лес, озеро, изба и олени"
     );
 
     companion object {
@@ -102,49 +103,32 @@ fun dynamicSceneFor(
 
 private fun frac(x: Float): Float = x - floor(x)
 
-private data class SceneAssets(
-    @DrawableRes val background: Int,
-    @DrawableRes val foreground: Int? = null
-)
+private data class SceneAssets(@DrawableRes val background: Int)
 
-/** Подбор реальной фотографии и слоя глубины под набор/состояние. */
+/** Подбор плоской векторной сцены под набор и состояние. */
 private fun assetsFor(pack: DynamicScenePack, scene: DynamicScene): SceneAssets = when (pack) {
     DynamicScenePack.MOUNTAINS -> when (scene) {
-        DynamicScene.NIGHT -> SceneAssets(R.drawable.scene_night, R.drawable.scene_night_fg)
-        DynamicScene.RAIN, DynamicScene.SNOW -> SceneAssets(R.drawable.scene_fog, R.drawable.scene_fog_fg)
-        else -> SceneAssets(R.drawable.scene_golden, R.drawable.scene_golden_fg)
+        DynamicScene.DAWN -> SceneAssets(R.drawable.scene_flat_dawn)
+        DynamicScene.NIGHT -> SceneAssets(R.drawable.scene_flat_night)
+        DynamicScene.RAIN -> SceneAssets(R.drawable.scene_flat_rain)
+        DynamicScene.SNOW -> SceneAssets(R.drawable.scene_flat_snow)
+        DynamicScene.WIND -> SceneAssets(R.drawable.scene_flat_wind)
+        else -> SceneAssets(R.drawable.scene_flat_day)
     }
 
-    DynamicScenePack.CITY -> SceneAssets(R.drawable.scene_city)
-
-    DynamicScenePack.FOREST -> when (scene) {
-        DynamicScene.DAWN -> SceneAssets(R.drawable.scene_dawn, R.drawable.scene_dawn_fg)
-        DynamicScene.NIGHT -> SceneAssets(R.drawable.scene_night, R.drawable.scene_night_fg)
-        DynamicScene.RAIN, DynamicScene.WIND -> SceneAssets(R.drawable.scene_fog, R.drawable.scene_fog_fg)
-        else -> SceneAssets(R.drawable.scene_forest, R.drawable.scene_dawn_fg)
-    }
-}
-
-private data class SceneGrade(val top: Color, val bottom: Color, val strength: Float)
-
-/** Цветовая подложка, которая перекрашивает одну и ту же фотографию под погоду/время суток. */
-private fun gradeFor(scene: DynamicScene): SceneGrade = when (scene) {
-    DynamicScene.DAY -> SceneGrade(Color(0xFFBBD9FF), Color(0xFFFFE2A8), 0.05f)
-    DynamicScene.DAWN -> SceneGrade(Color(0xFF7A4A6B), Color(0xFFFFB06A), 0.20f)
-    DynamicScene.NIGHT -> SceneGrade(Color(0xFF06102C), Color(0xFF101A36), 0.42f)
-    DynamicScene.RAIN -> SceneGrade(Color(0xFF33474C), Color(0xFF5C6B6A), 0.24f)
-    DynamicScene.SNOW -> SceneGrade(Color(0xFFDCEBF6), Color(0xFFFFFFFF), 0.20f)
-    DynamicScene.WIND -> SceneGrade(Color(0xFF9A8E6B), Color(0xFFD9C7A0), 0.12f)
+    DynamicScenePack.CITY -> SceneAssets(R.drawable.scene_flat_city)
+    DynamicScenePack.FOREST -> SceneAssets(R.drawable.scene_flat_forest)
 }
 
 /**
- * Живые обои первого стола: реальное фото, медленно дрейфующий передний слой для эффекта
- * глубины, лёгкая цветовая коррекция и очень дешёвые погодные частицы.
+ * Живые обои первого стола: один векторный слой с медленным параллаксом,
+ * дешёвые погодные частицы и кинематографичная дымка.
  *
- * Всё движение идёт через graphicsLayer/infinite transition без перерисовки тяжёлых векторных
- * сцен, поэтому анимация остаётся плавной даже на слабом устройстве.
+ * Движение идёт через graphicsLayer, а частицы обновляются отдельным composable
+ * с частотой ~24fps — корневой экран не перерисовывается каждый кадр.
  */
 @Composable
+@Suppress("UNUSED_PARAMETER")
 fun DynamicSceneWallpaper(
     scene: DynamicScene,
     pack: DynamicScenePack = DynamicScenePack.MOUNTAINS,
@@ -154,7 +138,6 @@ fun DynamicSceneWallpaper(
     modifier: Modifier = Modifier
 ) {
     val assets = assetsFor(pack, scene)
-    val grade = gradeFor(scene)
     val transition = rememberInfiniteTransition(label = "scene-depth")
     val drift by transition.animateFloat(
         initialValue = 0f,
@@ -164,21 +147,6 @@ fun DynamicSceneWallpaper(
             repeatMode = RepeatMode.Reverse
         ),
         label = "depth-drift"
-    )
-    val particleDuration = when (scene) {
-        DynamicScene.RAIN -> 1_500
-        DynamicScene.SNOW -> 7_000
-        DynamicScene.WIND -> 2_400
-        else -> 6_000
-    }
-    val phase by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = particleDuration, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "weather-phase"
     )
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -199,46 +167,11 @@ fun DynamicSceneWallpaper(
                 }
         )
 
-        val foreground = assets.foreground?.let { painterResource(id = it) }
-        if (foreground != null) {
-            Image(
-                painter = foreground,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        val sx = (drift - 0.5f) * size.width * 0.014f
-                        val sy = (drift - 0.5f) * size.height * 0.010f
-                        alpha = 0.78f
-                        scaleX = 1.10f
-                        scaleY = 1.10f
-                        translationX = -sx * 1.9f
-                        translationY = -sy * 1.5f
-                    }
-            )
-        }
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            grade.top.copy(alpha = grade.strength),
-                            grade.bottom.copy(alpha = grade.strength * 0.75f)
-                        )
-                    )
-                )
-        )
-
         if (scene == DynamicScene.RAIN || scene == DynamicScene.SNOW || scene == DynamicScene.WIND) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                drawWeatherParticles(scene, phase, size.width, size.height)
-            }
+            WeatherParticles(scene = scene, modifier = Modifier.fillMaxSize())
         }
 
-        // Мягкая кинематографичная дымка сверху и снизу — как в живых сценах tvOS.
+        // Мягкая кинематографичная дымка сверху и снизу — статична, не перерисовывается.
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawRect(
                 brush = Brush.verticalGradient(
@@ -253,6 +186,28 @@ fun DynamicSceneWallpaper(
                 )
             )
         }
+    }
+}
+
+/** Частицы живут в отдельном composable: рекомпозируется только этот Canvas. */
+@Composable
+private fun WeatherParticles(scene: DynamicScene, modifier: Modifier = Modifier) {
+    val durationMillis = when (scene) {
+        DynamicScene.RAIN -> 1_500
+        DynamicScene.SNOW -> 7_000
+        DynamicScene.WIND -> 2_400
+        else -> 6_000
+    }
+    var phase by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(scene) {
+        val frameDelay = 1_000L / 24L
+        while (true) {
+            phase = (phase + frameDelay.toFloat() / durationMillis) % 1f
+            delay(frameDelay)
+        }
+    }
+    Canvas(modifier = modifier) {
+        drawWeatherParticles(scene, phase, size.width, size.height)
     }
 }
 

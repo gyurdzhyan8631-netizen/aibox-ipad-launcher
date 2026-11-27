@@ -115,7 +115,7 @@ fun LauncherRootScreen() {
         }
     }
     CompositionLocalProvider(
-        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
+        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale * uiScale),
         LocalConfiguration provides scaledConfig
     ) {
         // Шрифт интерфейса применяется ко всему лаунчеру, включая настройки.
