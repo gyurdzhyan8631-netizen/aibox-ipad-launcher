@@ -115,7 +115,7 @@ fun LauncherRootScreen() {
         }
     }
     CompositionLocalProvider(
-        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale * uiScale),
+        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
         LocalConfiguration provides scaledConfig
     ) {
         // Шрифт интерфейса применяется ко всему лаунчеру, включая настройки.
@@ -623,15 +623,15 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     onLaunchApp = launchApp,
                     onOpenDrawer = { showAppDrawer = true },
                     onOpenSettings = { openSettings("personalization") },
-                    scale = settings.panelScale,
+                    scale = settings.dockScale,
                     uiScale = uiScale,
                     modifier = Modifier
                         .weight(1f)
-                        .height(DockDefaults.panelHeight(settings.panelScale))
+                        .height(DockDefaults.panelHeight(settings.dockScale))
                 )
                 Spacer(Modifier.width(12.dp))
                 SystemNavigationCapsule(
-                    scale = settings.panelScale,
+                    scale = settings.hotkeyScale,
                     uiScale = uiScale,
                     onBack = {
                         when {

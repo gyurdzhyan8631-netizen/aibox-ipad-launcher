@@ -92,6 +92,16 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
         private set
 
+    /** Док и капсула горячих клавиш теперь настраиваются отдельно друг от друга. */
+    var dockScale by mutableFloatStateOf(
+        prefs.getFloat(K_DOCK, prefs.getFloat(K_PANEL, 1f)).coerceIn(0.75f, 1.35f)
+    )
+        private set
+    var hotkeyScale by mutableFloatStateOf(
+        prefs.getFloat(K_HOTKEY, prefs.getFloat(K_PANEL, 1f)).coerceIn(0.75f, 1.35f)
+    )
+        private set
+
     var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
         private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
@@ -313,12 +323,24 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_QUICK, quickScale).apply()
     }
 
+    fun updateDockScale(value: Float) {
+        dockScale = value.coerceIn(0.75f, 1.35f)
+        prefs.edit().putFloat(K_DOCK, dockScale).apply()
+    }
+
+    fun updateHotkeyScale(value: Float) {
+        hotkeyScale = value.coerceIn(0.75f, 1.35f)
+        prefs.edit().putFloat(K_HOTKEY, hotkeyScale).apply()
+    }
+
     /** Возвращает все размеры к значениям по умолчанию. */
     fun resetSizes() {
         updateUiScale(DEFAULT_UI_SCALE)
         updateStatusScale(1f)
         updateQuickScale(1f)
         updatePanelScale(1f)
+        updateDockScale(1f)
+        updateHotkeyScale(1f)
         updateIconScale(1f)
         updateClockScale(1f)
     }
@@ -374,6 +396,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
         const val K_QUICK = "quick_scale"
+        const val K_DOCK = "dock_scale"
+        const val K_HOTKEY = "hotkey_scale"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"

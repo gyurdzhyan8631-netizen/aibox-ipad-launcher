@@ -1318,7 +1318,7 @@ internal fun SystemSection() {
 // ---------------------------------------------------------------- О лаунчере
 
 @Composable
-internal fun AboutSection(onOpenSection: (SettingsSection) -> Unit) {
+internal fun AboutSection() {
     val context = LocalContext.current
     val config = LocalConfiguration.current
     val versionName = remember {
@@ -1329,10 +1329,6 @@ internal fun AboutSection(onOpenSection: (SettingsSection) -> Unit) {
     SettingsGroup {
         SettingsRow(Icons.Rounded.Star, Color(0xFF8E8E93), "AI Box Car Launcher",
             value = versionName, showChevron = false)
-        RowDivider()
-        SettingsRow(Icons.Rounded.Code, Color(0xFF64D2FF), "Диагностика",
-            subtitle = "SoC, GPU, память, OpenGL ES и FPS",
-            onClick = { onOpenSection(SettingsSection.DIAGNOSTICS) })
         RowDivider()
         SettingsRow(Icons.Rounded.Info, Color(0xFF8E8E93), "Устройство",
             value = Build.MODEL, showChevron = false)
@@ -1696,7 +1692,23 @@ internal fun SizesSection(settings: LauncherSettings) {
             valueRange = 0.6f..1.3f,
             onValueChange = { settings.updateQuickScale(it) }
         )
+        RowDivider()
+        SliderRow(
+            title = "Док панель",
+            valueText = percent(settings.dockScale),
+            value = settings.dockScale,
+            valueRange = 0.75f..1.35f,
+            onValueChange = { settings.updateDockScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Горячие кнопки",
+            valueText = percent(settings.hotkeyScale),
+            value = settings.hotkeyScale,
+            valueRange = 0.75f..1.35f,
+            onValueChange = { settings.updateHotkeyScale(it) }
+        )
     }
     PrimaryButton("Сбросить все размеры") { settings.resetSizes() }
-    HintText("«Весь интерфейс» меняет всё сразу. Остальные ползунки меняют только свой элемент.")
+    HintText("«Весь интерфейс» меняет всё сразу. Док и горячие кнопки настраиваются отдельно.")
 }

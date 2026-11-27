@@ -48,13 +48,14 @@ import com.aibox.launcher.icons.AppIconPreview
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.round
 
 /**
  * Горизонтальный док в стеклянной капсуле, в одном ряду с капсулой горячих клавиш.
  *
  * Карусель занимает всю доступную ширину слева, а справа стоят две кнопки:
  * «Все приложения» и «Настройки». Они не перекрывают иконки карусели.
- * Прокрутка свободная, с инерцией; пружинное выделение центральной иконки сохранено.
+ * Прокрутка свободная, с инерцией; центральная иконка пружинит «вперёд» внутри стеклянной капсулы.
  */
 @Composable
 fun CarouselDockBar(
@@ -74,7 +75,8 @@ fun CarouselDockBar(
     // Увеличили зазор: иконки больше не слипаются.
     val iconGap = 16.dp / safeUiScale
     val stepPx = with(density) { (iconSize + iconGap).toPx() }
-    val forwardPx = with(density) { (8.dp / safeUiScale).toPx() }
+    // Глубина пружины «вперёд»: тень под центральной иконкой, а не сдвиг вверх.
+    val depthPx = with(density) { (12.dp / safeUiScale).toPx() }
     val iconHalfPx = with(density) { iconSize.toPx() } / 2f
     val count = apps.size.coerceAtLeast(1)
     val cyclePx = stepPx * count
@@ -89,6 +91,8 @@ fun CarouselDockBar(
 
     // Бесконечный круг приводится к одному циклу только для расчёта положений.
     val normalized = scrollState - floor(scrollState / cyclePx) * cyclePx
+    // Стеклянная оболочка едет вместе с иконкой, ближайшей к центру карусели.
+    val shellShiftPx = round(-normalized / stepPx) * stepPx + normalized
 
     fun wrap(value: Float): Float {
         val wrapped = value % cyclePx
@@ -149,14 +153,23 @@ fun CarouselDockBar(
                         }
                     }
             ) {
+                // Стеклянная капсула сопровождает выбранную иконку во время прокрутки.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .offset(x = with(density) { shellShiftPx.toDp() })
+                        .size(iconSize * 1.18f)
+                        .glassSurface(CircleShape, strength = 1.15f)
+                )
+
                 apps.forEachIndexed { index, app ->
                     (-2..2).forEach { repeat ->
                         val relativePx = index * stepPx + normalized + repeat * cyclePx
                         if (abs(relativePx) <= viewportPx / 2f + iconHalfPx * 1.5f) {
                             val distance = (abs(relativePx) / stepPx).coerceIn(0f, 1f)
-                            // Пружина центральной иконки не изменена.
+                            // Пружина центральной иконки «вперёд»: рост и тень глубины вместо сдвига вверх.
                             val scaleByDistance by animateFloatAsState(
-                                targetValue = 1.22f - 0.22f * distance,
+                                targetValue = 1.30f - 0.30f * distance,
                                 animationSpec = spring(
                                     dampingRatio = 0.58f,
                                     stiffness = Spring.StiffnessMediumLow
@@ -175,7 +188,8 @@ fun CarouselDockBar(
                                     .graphicsLayer {
                                         scaleX = scaleByDistance
                                         scaleY = scaleByDistance
-                                        translationY = -(1f - distance) * forwardPx
+                                        shape = CircleShape
+                                        shadowElevation = (1f - distance) * depthPx
                                         alpha = (1f - 0.5f * distance) * edgeAlpha
                                     }
                                     .clickable {
