@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
@@ -76,6 +75,7 @@ fun CarouselDockBar(
     val iconGap = 16.dp / safeUiScale
     val stepPx = with(density) { (iconSize + iconGap).toPx() }
     val forwardPx = with(density) { (8.dp / safeUiScale).toPx() }
+    val iconHalfPx = with(density) { iconSize.toPx() } / 2f
     val count = apps.size.coerceAtLeast(1)
     val cyclePx = stepPx * count
 
@@ -125,6 +125,8 @@ fun CarouselDockBar(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
+                    // Карусель обрезается по краям дока: иконки не заходят под кнопки справа.
+                    .clip(RoundedCornerShape(percent = 50))
                     .onSizeChanged { viewportPx = it.width.coerceAtLeast(1) }
                     .pointerInput(apps.size) {
                         detectDragGestures(
@@ -150,7 +152,7 @@ fun CarouselDockBar(
                 apps.forEachIndexed { index, app ->
                     (-2..2).forEach { repeat ->
                         val relativePx = index * stepPx + normalized + repeat * cyclePx
-                        if (abs(relativePx) <= viewportPx / 2f + stepPx * 1.5f) {
+                        if (abs(relativePx) <= viewportPx / 2f + iconHalfPx * 1.5f) {
                             val distance = (abs(relativePx) / stepPx).coerceIn(0f, 1f)
                             // Пружина центральной иконки не изменена.
                             val scaleByDistance by animateFloatAsState(
@@ -161,6 +163,9 @@ fun CarouselDockBar(
                                 ),
                                 label = "dockIconScale"
                             )
+                            // У самого края иконка плавно исчезает, а не обрезается на границе дока.
+                            val edgeAlpha = ((viewportPx / 2f - abs(relativePx)) / (iconHalfPx * 1.2f))
+                                .coerceIn(0f, 1f)
                             Box(
                                 contentAlignment = Alignment.Center,
                                 modifier = Modifier
@@ -171,7 +176,7 @@ fun CarouselDockBar(
                                         scaleX = scaleByDistance
                                         scaleY = scaleByDistance
                                         translationY = -(1f - distance) * forwardPx
-                                        alpha = 1f - 0.5f * distance
+                                        alpha = (1f - 0.5f * distance) * edgeAlpha
                                     }
                                     .clickable {
                                         if (System.currentTimeMillis() - lastDragAt > 250L) {
@@ -216,14 +221,14 @@ private fun DockActionButton(
         modifier = Modifier
             .size(size)
             .clip(CircleShape)
-            .background(Color(0x660A84FF))
+            .background(DockDefaults.HotkeyButtonBackground)
             .clickable(onClick = onClick)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = Color.White,
-            modifier = Modifier.size(size * 0.52f)
+            tint = DockDefaults.HotkeyIconTint,
+            modifier = Modifier.size(size * 0.5f)
         )
     }
 }

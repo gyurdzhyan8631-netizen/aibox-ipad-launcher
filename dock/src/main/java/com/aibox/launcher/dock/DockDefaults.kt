@@ -1,5 +1,6 @@
 package com.aibox.launcher.dock
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -8,6 +9,10 @@ object DockDefaults {
     const val MIN_SCALE = 0.75f
     const val MAX_SCALE = 1.35f
     const val DEFAULT_SCALE = 1.0f
+
+    /** Оформление кнопок горячих клавиш; используется и для кнопок «Все приложения» / «Настройки». */
+    val HotkeyButtonBackground = Color(0x26FFFFFF)
+    val HotkeyIconTint = Color.White
 
     /** Капсула горячих клавиш. */
     fun panelHeight(scale: Float): Dp = 84.dp * scale.coerceIn(MIN_SCALE, MAX_SCALE)

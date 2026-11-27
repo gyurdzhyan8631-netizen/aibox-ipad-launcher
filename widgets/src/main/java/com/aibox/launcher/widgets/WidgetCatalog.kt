@@ -164,7 +164,7 @@ fun defaultWidgetBoard(page: Int): List<WidgetItem> = when (page) {
         item("p1-clock", WidgetType.CLOCK, 0, 0, WidgetSizeClass.SMALL),
         item("p1-weather", WidgetType.WEATHER, 2, 0, WidgetSizeClass.MEDIUM),
         item("p1-music", WidgetType.MUSIC, 0, 2, WidgetSizeClass.MEDIUM),
-        item("p1-calendar", WidgetType.CALENDAR, 2, 2, WidgetSizeClass.LARGE)
+        item("p1-calendar", WidgetType.CALENDAR, 2, 4, WidgetSizeClass.LARGE)
     )
     else -> listOf(
         item("p2-stack", WidgetType.SMART_STACK, 0, 0, WidgetSizeClass.MEDIUM),

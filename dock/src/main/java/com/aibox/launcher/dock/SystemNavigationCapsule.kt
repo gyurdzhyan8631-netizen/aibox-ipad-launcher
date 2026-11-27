@@ -67,13 +67,13 @@ private fun CapsuleButton(
         modifier = Modifier
             .size(buttonSize)
             .clip(CircleShape)
-            .background(Color(0x26FFFFFF))
+            .background(DockDefaults.HotkeyButtonBackground)
             .clickable(onClick = onClick)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = Color.White,
+            tint = DockDefaults.HotkeyIconTint,
             modifier = Modifier.size(buttonSize * 0.5f)
         )
     }
