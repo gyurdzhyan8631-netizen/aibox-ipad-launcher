@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.widgets.WidgetItem
@@ -36,6 +37,15 @@ enum class WeatherSource(val id: String, val title: String) {
         fun fromId(id: String?): WeatherSource = entries.firstOrNull { it.id == id } ?: CITY
     }
 }
+
+/** Шрифты и часы, которые задаёт выбранная обложка стиля OS. */
+private data class OsPreset(
+    val clock: ClockStyle,
+    val interfaceFont: String,
+    val clockFont: String,
+    val dateFont: String,
+    val greetingFont: String
+)
 
 /**
  * Все настройки лаунчера. Значения хранятся в SharedPreferences и сразу применяются на экране
@@ -104,6 +114,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var quickScale by mutableFloatStateOf(prefs.getFloat(K_QUICK, 1f).coerceIn(0.6f, 1.3f))
         private set
 
+    /** Масштаб виджетов на рабочих столах: 60–160%, независимо от общего масштаба. */
+    var widgetScale by mutableFloatStateOf(
+        prefs.getFloat(K_WIDGET_SCALE, 1f).coerceIn(0.6f, 1.6f)
+    )
+        private set
+
     /** Док и капсула горячих клавиш теперь настраиваются отдельно друг от друга. */
     var dockScale by mutableFloatStateOf(
         prefs.getFloat(K_DOCK, prefs.getFloat(K_PANEL, 1f)).coerceIn(0.75f, 1.35f)
@@ -123,6 +139,18 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var clockFontId by mutableStateOf(
         prefs.getString(K_CLOCK_FONT, LauncherFonts.DEFAULT_ID) ?: LauncherFonts.DEFAULT_ID
     )
+        private set
+    var dateFontId by mutableStateOf(
+        prefs.getString(K_DATE_FONT, LauncherFonts.DEFAULT_ID) ?: LauncherFonts.DEFAULT_ID
+    )
+        private set
+    var greetingFontId by mutableStateOf(
+        prefs.getString(K_GREETING_FONT, LauncherFonts.DEFAULT_ID) ?: LauncherFonts.DEFAULT_ID
+    )
+        private set
+
+    /** Брендовый стиль из раздела «Стили OS». Управляет цветами интерфейса. */
+    var visualStyle by mutableStateOf(VisualStyle.fromId(prefs.getString(K_VISUAL_STYLE, null)))
         private set
 
     var musicPackage by mutableStateOf(prefs.getString(K_MUSIC, "") ?: "")
@@ -181,6 +209,54 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateClockFont(value: String) {
         clockFontId = value
         prefs.edit().putString(K_CLOCK_FONT, value).apply()
+    }
+
+    fun updateDateFont(value: String) {
+        dateFontId = value
+        prefs.edit().putString(K_DATE_FONT, value).apply()
+    }
+
+    fun updateGreetingFont(value: String) {
+        greetingFontId = value
+        prefs.edit().putString(K_GREETING_FONT, value).apply()
+    }
+
+    /**
+     * Обложка стиля OS задаёт не только цвета, но и часы, и шрифты даты/приветствия.
+     * Остальные настройки (масштабы, обои) не сбрасываются.
+     */
+    fun applyOsStyle(value: VisualStyle) {
+        visualStyle = value
+        val preset = when (value) {
+            VisualStyle.IPAD -> OsPreset(
+                ClockStyle.IPHONE, "sans", "sans", "sans", "sans"
+            )
+            VisualStyle.SAMSUNG_TAB -> OsPreset(
+                ClockStyle.SAMSUNG, "system", "system", "system", "system"
+            )
+            VisualStyle.APPLE_DUO -> OsPreset(
+                ClockStyle.IPHONE, "sans", "sans", "serif", "sans"
+            )
+            VisualStyle.PIXEL_FOLD -> OsPreset(
+                ClockStyle.PIXEL, "system", "system", "sans", "sans"
+            )
+            else -> null
+        }
+        if (preset != null) {
+            clockStyle = preset.clock
+            interfaceFontId = preset.interfaceFont
+            clockFontId = preset.clockFont
+            dateFontId = preset.dateFont
+            greetingFontId = preset.greetingFont
+        }
+        prefs.edit()
+            .putString(K_VISUAL_STYLE, value.name)
+            .putString(K_CLOCK_STYLE, clockStyle.id)
+            .putString(K_INTERFACE_FONT, interfaceFontId)
+            .putString(K_CLOCK_FONT, clockFontId)
+            .putString(K_DATE_FONT, dateFontId)
+            .putString(K_GREETING_FONT, greetingFontId)
+            .apply()
     }
 
     fun updateMusicPackage(value: String) {
@@ -292,6 +368,11 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         prefs.edit().putFloat(K_QUICK, quickScale).apply()
     }
 
+    fun updateWidgetScale(value: Float) {
+        widgetScale = value.coerceIn(0.6f, 1.6f)
+        prefs.edit().putFloat(K_WIDGET_SCALE, widgetScale).apply()
+    }
+
     fun updateDockScale(value: Float) {
         dockScale = value.coerceIn(0.75f, 1.35f)
         prefs.edit().putFloat(K_DOCK, dockScale).apply()
@@ -307,6 +388,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updateUiScale(DEFAULT_UI_SCALE)
         updateStatusScale(1f)
         updateQuickScale(1f)
+        updateWidgetScale(1f)
         updatePanelScale(1f)
         updateDockScale(1f)
         updateHotkeyScale(1f)
@@ -359,6 +441,8 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
         const val K_QUICK = "quick_scale"
+        // Новый ключ: старый "widget_scale" удалялся как legacy и его нельзя переиспользовать.
+        const val K_WIDGET_SCALE = "widget_board_scale"
         const val K_DOCK = "dock_scale"
         const val K_HOTKEY = "hotkey_scale"
         // Ключи panel_scale и weather_city совпадают с прежними версиями — настройки не теряются.
@@ -368,6 +452,9 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_CLOCK_STYLE = "clock_style"
         const val K_INTERFACE_FONT = "interface_font"
         const val K_CLOCK_FONT = "clock_font"
+        const val K_DATE_FONT = "date_font"
+        const val K_GREETING_FONT = "greeting_font"
+        const val K_VISUAL_STYLE = "visual_style"
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
         const val K_WEATHER = "weather_package"

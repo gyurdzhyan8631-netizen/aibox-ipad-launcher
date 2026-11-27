@@ -69,6 +69,7 @@ private val BoardAccent = Color(0xFF0A84FF)
 @Composable
 fun WidgetBoard(
     items: List<WidgetItem>,
+    widgetScale: Float = 1f,
     editMode: Boolean,
     weather: WidgetWeatherInfo,
     onEnterEdit: () -> Unit,
@@ -90,8 +91,8 @@ fun WidgetBoard(
                 top = topPadding,
                 bottom = bottomPadding
             )
-            .pointerInput(Unit) {
-                detectTapGestures(onLongPress = { if (!editMode) onEnterEdit() })
+            .pointerInput(editMode) {
+                if (!editMode) detectTapGestures(onLongPress = { onEnterEdit() })
             }
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -116,6 +117,7 @@ fun WidgetBoard(
                     originX = originX + cell * item.column.toFloat() + gap / 2f,
                     originY = originY + cell * item.row.toFloat() + gap / 2f,
                     cellPx = with(density) { cell.toPx().coerceAtLeast(1f) },
+                    widgetScale = widgetScale,
                     editMode = editMode,
                     onEnterEdit = onEnterEdit,
                     onMove = onMove,
@@ -159,6 +161,7 @@ private fun WidgetBoardCell(
     originX: Dp,
     originY: Dp,
     cellPx: Float,
+    widgetScale: Float,
     editMode: Boolean,
     onEnterEdit: () -> Unit,
     onMove: (String, Int, Int) -> Unit,
@@ -170,11 +173,8 @@ private fun WidgetBoardCell(
     val wiggle = rememberBoardWiggle(editMode, index)
     var drag by remember(item.id) { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current
-    val currentEditMode by rememberUpdatedState(editMode)
     val currentEnterEdit by rememberUpdatedState(onEnterEdit)
     val currentMove by rememberUpdatedState(onMove)
-    val widthPx = with(density) { width.toPx().coerceAtLeast(1f) }
-    val heightPx = with(density) { height.toPx().coerceAtLeast(1f) }
 
     Box(
         modifier = Modifier
@@ -189,20 +189,6 @@ private fun WidgetBoardCell(
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     val startTime = System.currentTimeMillis()
                     val start = down.position
-                    val reservedZone = with(density) { 40.dp.toPx() }
-                    val resizeZone = with(density) { 96.dp.toPx() }
-                    val reserved = currentEditMode && (
-                        (start.x <= reservedZone && start.y <= reservedZone) ||
-                            (start.x >= widthPx - reservedZone && start.y >= heightPx - resizeZone)
-                        )
-                    if (reserved) {
-                        while (true) {
-                            val event = awaitPointerEvent(PointerEventPass.Initial)
-                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                        }
-                        return@awaitEachGesture
-                    }
 
                     var dragging = false
                     var longPressed = false
@@ -240,7 +226,10 @@ private fun WidgetBoardCell(
             item = item,
             weather = weather,
             onOpenWidget = onOpenWidget,
-            modifier = Modifier.fillMaxSize()
+            // Масштаб только картинки: сетка, зоны захвата и кнопки остаются на своих местах.
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(scaleX = widgetScale, scaleY = widgetScale)
         )
 
         if (editMode) {

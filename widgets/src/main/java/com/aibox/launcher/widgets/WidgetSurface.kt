@@ -1,7 +1,6 @@
 package com.aibox.launcher.widgets
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,28 +34,6 @@ fun WidgetSurface(
         modifier = modifier
             .background(Color(0xC4111218), shape)
             .glassSurface(shape, strength = 1.15f)
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0x1FFFFFFF),
-                        Color(0x04FFFFFF),
-                        Color(0x00000000)
-                    )
-                )
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.linearGradient(
-                    listOf(
-                        Color(0x5CFFFFFF),
-                        Color(0x1AFFFFFF),
-                        Color(0x08FFFFFF),
-                        Color(0x10FFFFFF),
-                        Color(0x3BFFFFFF)
-                    )
-                ),
-                shape = shape
-            )
             .padding(if (compact) 12.dp else 16.dp)
     ) {
         content()

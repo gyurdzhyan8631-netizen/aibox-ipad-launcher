@@ -80,7 +80,6 @@ import androidx.compose.runtime.State
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -92,6 +91,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
+import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconPreview
@@ -211,7 +211,7 @@ internal fun HomeSection(
     SettingsGroup {
         SettingsRow(
             icon = Icons.Rounded.Widgets,
-            iconColor = SettingsColors.accent,
+            iconColor = settingsAccent(),
             title = "Система виджетов",
             value = "iPad",
             subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4 / 6×4, умный стек",
@@ -406,6 +406,41 @@ internal fun PersonalizationSection(
         listOf(PickerOption("", "Авто")) + apps.map { PickerOption(it.packageName, it.label) }
     }
 
+    // --- новая галерея стилей OS ---
+    SettingsGroup {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenSection(SettingsSection.STYLES) }
+                .padding(14.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(width = 150.dp, height = 72.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF232036))
+            ) {
+                Text("iPad · Tab · Duo", color = Color.White, fontSize = 11.sp)
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Стили OS", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "iPad, Samsung Tab, Apple Duo, Pixel Fold",
+                    color = SettingsColors.textSecondary,
+                    fontSize = 13.sp
+                )
+                Text(
+                    "Цвета, ползунки, часы и шрифты даты",
+                    color = SettingsColors.textSecondary,
+                    fontSize = 12.sp
+                )
+            }
+        }
+    }
+
     // --- карточка «Обои» ---
     SettingsGroup {
         Row(
@@ -420,7 +455,7 @@ internal fun PersonalizationSection(
                 modifier = Modifier
                     .size(width = 150.dp, height = 72.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Brush.verticalGradient(listOf(Color(0xFF2A2E3B), Color(0xFF14161E))))
+                    .background(Color(0xFF20242F))
             ) {
                 Text(settings.wallpaperType.title, color = Color.White, fontSize = 12.sp)
             }
@@ -598,7 +633,7 @@ internal fun FontSection(settings: LauncherSettings, onPick: (PickerRequest) -> 
     SettingsGroup {
         SettingsRow(
             icon = Icons.Rounded.TextFields,
-            iconColor = SettingsColors.accent,
+            iconColor = settingsAccent(),
             title = "Шрифт интерфейса",
             value = LauncherFonts.title(settings.interfaceFontId),
             subtitle = "Применяется ко всему лаунчеру и настройкам",
@@ -631,8 +666,284 @@ internal fun FontSection(settings: LauncherSettings, onPick: (PickerRequest) -> 
                 )
             }
         )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.DateRange,
+            iconColor = Color(0xFF30D158),
+            title = "Шрифт даты",
+            value = LauncherFonts.title(settings.dateFontId),
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Шрифт даты",
+                        options = fonts,
+                        selectedKey = settings.dateFontId,
+                        onSelect = { settings.updateDateFont(it) }
+                    )
+                )
+            }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.WbSunny,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Шрифт приветствия",
+            value = LauncherFonts.title(settings.greetingFontId),
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Шрифт приветствия",
+                        options = fonts,
+                        selectedKey = settings.greetingFontId,
+                        onSelect = { settings.updateGreetingFont(it) }
+                    )
+                )
+            }
+        )
     }
     HintText("Системный шрифт повторяет шрифт Android. Остальные встроены в лаунчер и не требуют загрузки.")
+}
+
+// ---------------------------------------------------------------- Стили OS (обложки)
+
+private data class OsCover(
+    val style: VisualStyle,
+    val title: String,
+    val subtitle: String,
+    val accent: Color,
+    val accent2: Color,
+    val background: Color,
+    val onBackground: Color,
+    val clock: String,
+    val clockWeight: FontWeight,
+    val clockFontId: String,
+    val dateFontId: String,
+    val greetingFontId: String,
+    val cornerDp: Float
+)
+
+/**
+ * iPad-подобная галерея обложек. Каждая обложка — не просто картинка: выбор меняет
+ * акцент меню и ползунков, стиль часов и шрифты даты/приветствия.
+ */
+@Composable
+internal fun OsStylesSection(settings: LauncherSettings) {
+    val covers = remember {
+        listOf(
+            OsCover(
+                style = VisualStyle.IPAD,
+                title = "iPad",
+                subtitle = "Светлая кромка, тонкие часы",
+                accent = Color(0xFF0A84FF),
+                accent2 = Color(0xFF5E5CE6),
+                background = Color(0xFF141821),
+                onBackground = Color.White,
+                clock = "09:41",
+                clockWeight = FontWeight.Light,
+                clockFontId = "sans",
+                dateFontId = "sans",
+                greetingFontId = "sans",
+                cornerDp = 30f
+            ),
+            OsCover(
+                style = VisualStyle.SAMSUNG_TAB,
+                title = "Samsung Tab",
+                subtitle = "Глубокий синий, жирные часы",
+                accent = Color(0xFF7AA2FF),
+                accent2 = Color(0xFF42A5F5),
+                background = Color(0xFF111925),
+                onBackground = Color(0xFFF5F8FF),
+                clock = "09:41",
+                clockWeight = FontWeight.Bold,
+                clockFontId = "system",
+                dateFontId = "system",
+                greetingFontId = "system",
+                cornerDp = 26f
+            ),
+            OsCover(
+                style = VisualStyle.APPLE_DUO,
+                title = "Apple Duo",
+                subtitle = "Два акцента, синий и фиолетовый",
+                accent = Color(0xFFBF5AF2),
+                accent2 = Color(0xFF0A84FF),
+                background = Color(0xFF171326),
+                onBackground = Color(0xFFFBF9FF),
+                clock = "09:41",
+                clockWeight = FontWeight.Thin,
+                clockFontId = "sans",
+                dateFontId = "serif",
+                greetingFontId = "sans",
+                cornerDp = 32f
+            ),
+            OsCover(
+                style = VisualStyle.PIXEL_FOLD,
+                title = "Google Pixel Fold",
+                subtitle = "Светлая панель, цветной акцент",
+                accent = Color(0xFF4285F4),
+                accent2 = Color(0xFF34A853),
+                background = Color(0xFFE8F0FE),
+                onBackground = Color(0xFF202124),
+                clock = "09:41",
+                clockWeight = FontWeight.Medium,
+                clockFontId = "system",
+                dateFontId = "sans",
+                greetingFontId = "sans",
+                cornerDp = 28f
+            )
+        )
+    }
+
+    SectionTitle("Стили OS")
+    HintText("Выберите обложку: она сменит цвета меню и ползунков, стиль часов и шрифты даты и приветствия.")
+    Spacer(Modifier.height(4.dp))
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 4.dp)
+    ) {
+        covers.forEach { cover ->
+            val selected = settings.visualStyle == cover.style
+            val coverShape = RoundedCornerShape(cover.cornerDp.dp)
+            Column(
+                modifier = Modifier
+                    .width(240.dp)
+                    .clip(coverShape)
+                    .background(cover.background)
+                    .border(
+                        width = if (selected) 3.dp else 1.dp,
+                        color = if (selected) cover.accent else Color(0x3DFFFFFF),
+                        shape = coverShape
+                    )
+                    .clickable { settings.applyOsStyle(cover.style) }
+                    .padding(14.dp)
+            ) {
+                // Мини-превью интерфейса: строка меню и ползунок в цветах стиля.
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .clip(RoundedCornerShape((cover.cornerDp - 8f).dp))
+                        .background(cover.accent.copy(alpha = 0.22f))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(cover.accent)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.72f)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(cover.accent2)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(cover.onBackground.copy(alpha = 0.25f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.62f)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(cover.accent)
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = cover.title,
+                    color = cover.onBackground,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                Text(
+                    text = cover.subtitle,
+                    color = cover.onBackground.copy(alpha = 0.65f),
+                    fontSize = 12.sp,
+                    maxLines = 1
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "Добрый день",
+                    style = TextStyle(
+                        fontFamily = LauncherFonts.family(cover.greetingFontId),
+                        fontSize = 12.sp,
+                        color = cover.onBackground.copy(alpha = 0.8f)
+                    )
+                )
+                Text(
+                    text = cover.clock,
+                    style = TextStyle(
+                        fontFamily = LauncherFonts.family(cover.clockFontId),
+                        fontWeight = cover.clockWeight,
+                        fontSize = 36.sp,
+                        color = cover.onBackground
+                    )
+                )
+                Text(
+                    text = "ПН · 28 НОЯБРЯ",
+                    style = TextStyle(
+                        fontFamily = LauncherFonts.family(cover.dateFontId),
+                        fontSize = 11.sp,
+                        color = cover.accent
+                    )
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selected) cover.accent else cover.onBackground.copy(alpha = 0.12f))
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = if (selected) "Используется" else "Применить",
+                        color = if (selected) Color.White else cover.onBackground,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup {
+        SettingsRow(
+            icon = Icons.Rounded.AccessTime,
+            iconColor = Color(0xFFFF9F0A),
+            title = "Стиль часов",
+            value = settings.clockStyle.title
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.TextFields,
+            iconColor = settingsAccent(),
+            title = "Шрифт даты",
+            value = LauncherFonts.title(settings.dateFontId)
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.TextFields,
+            iconColor = settingsAccent(),
+            title = "Шрифт приветствия",
+            value = LauncherFonts.title(settings.greetingFontId)
+        )
+    }
+    HintText("Шрифты можно поменять вручную в разделе «Шрифты», размеры — в разделе «Размеры».")
 }
 
 // ---------------------------------------------------------------- Сторонние иконки
@@ -904,7 +1215,7 @@ internal fun CustomIconsSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = app.label, color = Color.White, fontSize = 17.sp)
                     if (CustomIconStore.has(context, app.packageName)) {
-                        Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
+                        Text("Своя иконка", color = settingsAccent(), fontSize = 12.sp)
                     }
                 }
             }
@@ -1112,7 +1423,7 @@ internal fun AppsSection(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(text = app.label, color = Color.White, fontSize = 17.sp)
                     if (CustomIconStore.has(context, app.packageName)) {
-                        Text("Своя иконка", color = SettingsColors.accent, fontSize = 12.sp)
+                        Text("Своя иконка", color = settingsAccent(), fontSize = 12.sp)
                     }
                 }
             }
@@ -1300,7 +1611,7 @@ internal fun WallpaperSection(settings: LauncherSettings) {
                             fontSize = 17.sp
                         )
                         if (selected) {
-                            Text("Используются сейчас", color = SettingsColors.accent, fontSize = 12.sp)
+                            Text("Используются сейчас", color = settingsAccent(), fontSize = 12.sp)
                         }
                     }
                     Icon(
@@ -1388,7 +1699,7 @@ internal fun UpdateSection() {
         SettingsGroup {
             SettingsRow(
                 icon = Icons.Rounded.Refresh,
-                iconColor = SettingsColors.accent,
+                iconColor = settingsAccent(),
                 title = "Скачать и установить",
                 subtitle = "Сборка ${available.build}" +
                     if (available.notes.isNotBlank()) " · ${available.notes.take(80)}" else "",
@@ -1421,6 +1732,15 @@ internal fun SizesSection(settings: LauncherSettings) {
             value = settings.clockScale,
             valueRange = 0.6f..1.4f,
             onValueChange = { settings.updateClockScale(it) }
+        )
+        RowDivider()
+        SliderRow(
+            title = "Виджеты",
+            valueText = percent(settings.widgetScale),
+            value = settings.widgetScale,
+            valueRange = 0.6f..1.6f,
+            steps = 20,
+            onValueChange = { settings.updateWidgetScale(it) }
         )
         RowDivider()
         SliderRow(
@@ -1464,5 +1784,5 @@ internal fun SizesSection(settings: LauncherSettings) {
         )
     }
     PrimaryButton("Сбросить все размеры") { settings.resetSizes() }
-    HintText("«Весь интерфейс» меняет всё сразу. Док и горячие кнопки настраиваются отдельно.")
+    HintText("«Весь интерфейс» меняет всё сразу. Виджеты масштабируются отдельно — до 160%.")
 }

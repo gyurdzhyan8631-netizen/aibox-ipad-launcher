@@ -5,7 +5,18 @@ enum class VisualStyle(val title: String) {
     IOS_DARK("iOS Dark"),
     PREMIUM_GLASS("Premium Glass"),
     CLEAN_MINIMAL("Clean Minimal"),
-    AUTOMOTIVE_PREMIUM("Automotive Premium")
+    AUTOMOTIVE_PREMIUM("Automotive Premium"),
+
+    // Стили брендовых обложек из раздела «Стили OS».
+    IPAD("iPad"),
+    SAMSUNG_TAB("Samsung Tab"),
+    APPLE_DUO("Apple Duo"),
+    PIXEL_FOLD("Google Pixel Fold");
+
+    companion object {
+        fun fromId(id: String?): VisualStyle =
+            entries.firstOrNull { it.name == id } ?: IPADOS_MINIMAL
+    }
 }
 
 enum class AnimationIntensity(val title: String, val scaleFactor: Float) {

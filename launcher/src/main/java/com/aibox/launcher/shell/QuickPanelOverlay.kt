@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.ui.glassSurface
+import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -407,6 +408,7 @@ private fun LevelSlider(
     modifier: Modifier = Modifier
 ) {
     var heightPx by remember { mutableIntStateOf(1) }
+    val accent = LocalLauncherTokens.current.accent
     Box(
         modifier = modifier
             .glass()
@@ -428,7 +430,7 @@ private fun LevelSlider(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .fillMaxHeight((value / 100f).coerceIn(0.02f, 1f))
-                .background(Color.White.copy(alpha = 0.92f))
+                .background(accent)
         )
         Icon(
             imageVector = icon,

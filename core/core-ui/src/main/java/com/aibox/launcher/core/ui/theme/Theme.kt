@@ -95,6 +95,48 @@ fun tokensForStyle(style: VisualStyle): LauncherStyleTokens = when (style) {
         cornerRadius = 22.dp,
         isDark = true
     )
+
+    // --- обложки брендовых стилей ---
+    VisualStyle.IPAD -> LauncherStyleTokens(
+        panelBackground = Color(0x661C1C1E),
+        panelBorder = Color(0x42FFFFFF),
+        cardBackground = Color(0x4A2C2C2E),
+        textPrimary = Color.White,
+        textSecondary = Color(0xD9FFFFFF),
+        accent = Color(0xFF0A84FF),
+        cornerRadius = 30.dp,
+        isDark = true
+    )
+    VisualStyle.SAMSUNG_TAB -> LauncherStyleTokens(
+        panelBackground = Color(0xD9161D29),
+        panelBorder = Color(0x4D7AA2FF),
+        cardBackground = Color(0xE2232C3B),
+        textPrimary = Color(0xFFF5F8FF),
+        textSecondary = Color(0xFFB9C8E0),
+        accent = Color(0xFF7AA2FF),
+        cornerRadius = 26.dp,
+        isDark = true
+    )
+    VisualStyle.APPLE_DUO -> LauncherStyleTokens(
+        panelBackground = Color(0xE6141420),
+        panelBorder = Color(0x59BF5AF2),
+        cardBackground = Color(0xCC232036),
+        textPrimary = Color(0xFFFBF9FF),
+        textSecondary = Color(0xFFD6CCEF),
+        accent = Color(0xFFBF5AF2),
+        cornerRadius = 32.dp,
+        isDark = true
+    )
+    VisualStyle.PIXEL_FOLD -> LauncherStyleTokens(
+        panelBackground = Color(0xDCE8F0F5),
+        panelBorder = Color(0x33000000),
+        cardBackground = Color(0xF2FFFFFF),
+        textPrimary = Color(0xFF202124),
+        textSecondary = Color(0x995F6368),
+        accent = Color(0xFF4285F4),
+        cornerRadius = 28.dp,
+        isDark = false
+    )
 }
 
 private val AppleTypography = Typography(

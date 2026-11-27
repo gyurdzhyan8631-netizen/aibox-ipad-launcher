@@ -66,6 +66,7 @@ import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
+import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
 import androidx.compose.ui.unit.Density
 import com.aibox.launcher.desktop.WidgetBoard
 import com.aibox.launcher.dock.CarouselDockBar
@@ -111,13 +112,16 @@ fun LauncherRootScreen() {
             screenHeightDp = (baseConfig.screenHeightDp / uiScale).toInt()
         }
     }
-    CompositionLocalProvider(
-        LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
-        LocalConfiguration provides scaledConfig
-    ) {
-        // Шрифт интерфейса применяется ко всему лаунчеру, включая настройки.
-        ProvideTextStyle(TextStyle(fontFamily = LauncherFonts.family(settings.interfaceFontId))) {
-            LauncherRootContent(settings, uiScale)
+    // Токены выбранной обложки стиля OS: цвета меню, ползунков и виджетов.
+    AiBoxLauncherTheme(style = settings.visualStyle) {
+        CompositionLocalProvider(
+            LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
+            LocalConfiguration provides scaledConfig
+        ) {
+            // Шрифт интерфейса применяется ко всему лаунчеру, включая настройки.
+            ProvideTextStyle(TextStyle(fontFamily = LauncherFonts.family(settings.interfaceFontId))) {
+                LauncherRootContent(settings, uiScale)
+            }
         }
     }
 }
@@ -445,13 +449,17 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Свайп вниз от верхнего края открывает шторку быстрого доступа.
-            .pointerInput(Unit) {
+            // Свайп вниз от верхнего края открывает шторку. В режиме правки жест
+            // полностью отключён, чтобы ничто не мешало перетаскивать виджеты.
+            .pointerInput(editMode) {
+                if (editMode) return@pointerInput
+                val topZonePx = with(density) { 96.dp.toPx() }
+                val pullPx = with(density) { 140.dp.toPx() }
                 var startedAtTop = false
                 var accumulated = 0f
                 detectVerticalDragGestures(
                     onDragStart = { offset ->
-                        startedAtTop = offset.y <= 96f
+                        startedAtTop = offset.y <= topZonePx
                         accumulated = 0f
                     },
                     onDragEnd = {
@@ -467,7 +475,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                             !showQuickPanel && !showSettings && !showAppDrawer
                         ) {
                             accumulated += dragAmount
-                            if (accumulated >= 140f) {
+                            if (accumulated >= pullPx) {
                                 change.consume()
                                 showQuickPanel = true
                                 startedAtTop = false
@@ -488,12 +496,14 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         // 2. Рабочие столы 1 и 2 — на весь экран, ничего не обрезается жёсткой границей
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = !editMode,
             modifier = Modifier.fillMaxSize()
         ) { page ->
             val pageNumber = page + 1
             Box(modifier = Modifier.fillMaxSize()) {
                 WidgetBoard(
                     items = settings.widgetBoard(pageNumber),
+                    widgetScale = settings.widgetScale,
                     editMode = editMode,
                     weather = weatherInfo,
                     onEnterEdit = {
@@ -532,7 +542,9 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     compact = compact,
                     scale = settings.clockScale,
                     style = settings.clockStyle,
-                    fontFamily = LauncherFonts.family(settings.clockFontId)
+                    fontFamily = LauncherFonts.family(settings.clockFontId),
+                    greetingFontFamily = LauncherFonts.family(settings.greetingFontId),
+                    dateFontFamily = LauncherFonts.family(settings.dateFontId)
                 )
 
                 Row(
@@ -594,7 +606,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     apps = carouselApps,
                     onLaunchApp = launchApp,
                     onOpenDrawer = { showAppDrawer = true },
-                    onOpenSettings = { openSettings("personalization") },
+                    onOpenSettings = { openSettings("styles") },
                     scale = settings.dockScale,
                     uiScale = uiScale,
                     modifier = Modifier
@@ -684,6 +696,16 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             weatherStatus = weatherStatus,
             onClose = { showSettings = false }
         )
+
+        // 8. Плавающая кнопка диктовки Hex — видна на всех экранах лаунчера.
+        DictationButton(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = 28.dp,
+                    bottom = with(density) { bottomPx.toDp() } + verticalPad + 16.dp
+                )
+        )
     }
 }
 
@@ -696,7 +718,9 @@ private fun ClockHeader(
     compact: Boolean,
     scale: Float,
     style: ClockStyle,
-    fontFamily: FontFamily
+    fontFamily: FontFamily,
+    greetingFontFamily: FontFamily = fontFamily,
+    dateFontFamily: FontFamily = fontFamily
 ) {
     val ru = Locale("ru")
     val smallSize = (if (compact) 14f else 16f).sp
@@ -721,14 +745,14 @@ private fun ClockHeader(
         else -> 0.sp
     }
     val greetingStyle = TextStyle(
-        fontFamily = fontFamily,
+        fontFamily = greetingFontFamily,
         fontSize = smallSize * 0.85f,
         fontWeight = FontWeight.Medium,
         letterSpacing = 3.sp,
         color = Color.White.copy(alpha = 0.9f)
     )
     val dateStyle = TextStyle(
-        fontFamily = fontFamily,
+        fontFamily = dateFontFamily,
         fontSize = smallSize,
         fontWeight = FontWeight.Medium,
         letterSpacing = 2.sp,

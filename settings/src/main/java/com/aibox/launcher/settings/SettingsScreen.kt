@@ -79,6 +79,7 @@ enum class SettingsSection(
     DISPLAY("display", "Экран и яркость", Icons.Rounded.WbSunny, Color(0xFF0A84FF)),
     SOUND("sound", "Звук", Icons.Rounded.VolumeUp, Color(0xFFFF375F)),
     PERSONALIZATION("personalization", "Персонализация", Icons.Rounded.Palette, Color(0xFF5E5CE6)),
+    STYLES("styles", "Стили OS", Icons.Rounded.Palette, Color(0xFFBF5AF2)),
     SIZES("sizes", "Размеры", Icons.Rounded.Tune, Color(0xFF64D2FF)),
     FONTS("fonts", "Шрифты", Icons.Rounded.TextFields, Color(0xFF64D2FF)),
     WALLPAPERS("wallpapers", "Обои", Icons.Rounded.Image, Color(0xFF30B0C7)),
@@ -204,6 +205,7 @@ fun SettingsScreen(
                                 onPick = { picker = it },
                                 onOpenSection = { section = it }
                             )
+                            SettingsSection.STYLES -> OsStylesSection(settings)
                             SettingsSection.SIZES -> SizesSection(settings)
                             SettingsSection.FONTS -> FontSection(settings, onPick = { picker = it })
                             SettingsSection.WALLPAPERS -> WallpaperSection(settings)
@@ -256,7 +258,7 @@ private fun Sidebar(
                 .fillMaxWidth()
                 .height(itemHeight)
                 .clip(RoundedCornerShape(16.dp))
-                .background(SettingsColors.accent)
+                .background(settingsAccent())
         )
         Column(verticalArrangement = Arrangement.spacedBy(gap)) {
             SettingsSection.entries.forEach { item ->

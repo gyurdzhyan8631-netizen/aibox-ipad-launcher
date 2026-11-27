@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.ui.glassSurface
+import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 
 internal object SettingsColors {
     // Плотный фон: текст не «сливается» с узорами обоев под настройками.
@@ -52,6 +53,10 @@ internal object SettingsColors {
     val textSecondary = Color(0xFFC9CEDA)
     val divider = Color(0x2EFFFFFF)
 }
+
+/** Акцент меню и ползунков follows выбранному стилю OS. */
+@Composable
+internal fun settingsAccent(): Color = LocalLauncherTokens.current.accent
 
 /** Скруглённая группа строк, как в настройках iPad. */
 @Composable
@@ -165,7 +170,7 @@ internal fun SwitchRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedTrackColor = SettingsColors.accent)
+            colors = SwitchDefaults.colors(checkedTrackColor = settingsAccent())
         )
     }
 }
@@ -176,6 +181,7 @@ internal fun SliderRow(
     valueText: String,
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
     onValueChange: (Float) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -192,9 +198,10 @@ internal fun SliderRow(
             value = value,
             onValueChange = onValueChange,
             valueRange = valueRange,
+            steps = steps,
             colors = SliderDefaults.colors(
                 thumbColor = Color.White,
-                activeTrackColor = SettingsColors.accent
+                activeTrackColor = settingsAccent()
             )
         )
     }
@@ -227,7 +234,7 @@ internal fun PrimaryButton(text: String, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(SettingsColors.accent)
+            .background(settingsAccent())
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 10.dp)
     ) {
@@ -308,7 +315,7 @@ internal fun OptionPicker(request: PickerRequest, onDismiss: () -> Unit) {
                             Icon(
                                 imageVector = Icons.Rounded.Check,
                                 contentDescription = null,
-                                tint = SettingsColors.accent
+                                tint = settingsAccent()
                             )
                         }
                     }

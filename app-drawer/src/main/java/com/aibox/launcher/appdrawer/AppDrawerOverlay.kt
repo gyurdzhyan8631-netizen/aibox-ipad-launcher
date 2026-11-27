@@ -37,7 +37,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -95,9 +94,7 @@ fun AppDrawerOverlay(
                     .fillMaxWidth(0.56f)
                     .fillMaxHeight(0.86f)
                     .clip(panelShape)
-                    .background(
-                        Brush.verticalGradient(listOf(Color(0xF0222A42), Color(0xF0131A2E)))
-                    )
+                    .background(Color(0xF0182033))
                     .glassSurface(panelShape, strength = 0.8f)
                     // касания внутри панели не закрывают табло
                     .clickable(
