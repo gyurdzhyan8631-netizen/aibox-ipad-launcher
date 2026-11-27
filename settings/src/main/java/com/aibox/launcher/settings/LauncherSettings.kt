@@ -12,6 +12,7 @@ import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
 import com.aibox.launcher.widgets.WidgetType
 import com.aibox.launcher.widgets.defaultWidgetBoard
+import com.aibox.launcher.widgets.enlargeExistingWidget
 import com.aibox.launcher.widgets.findFreeWidgetSpot
 import java.util.UUID
 
@@ -42,6 +43,25 @@ class LauncherSettings(private val prefs: SharedPreferences) {
                 .remove(K_SIZES)
                 .remove(K_WIDGET)
                 .apply()
+        }
+
+        // Виджеты стали крупнее: один раз увеличиваем сохранённые 2×2 → 4×2 и 4×2 → 4×4.
+        if (!prefs.getBoolean(K_BOARD_SIZE_V2, false)) {
+            listOf(K_BOARD1, K_BOARD2).forEach { key ->
+                val raw = prefs.getString(key, null)
+                if (!raw.isNullOrBlank()) {
+                    val upgraded = mutableListOf<WidgetItem>()
+                    parseBoard(raw, emptyList()).forEach { item ->
+                        val size = enlargeExistingWidget(item.size)
+                        val (column, row) = findFreeWidgetSpot(
+                            upgraded, null, size, item.column, item.row
+                        )
+                        upgraded += item.copy(size = size, column = column, row = row)
+                    }
+                    prefs.edit().putString(key, encodeBoard(upgraded)).apply()
+                }
+            }
+            prefs.edit().putBoolean(K_BOARD_SIZE_V2, true).apply()
         }
     }
 
@@ -320,6 +340,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"
         const val K_BOARD2 = "widget_board_page2"
+        const val K_BOARD_SIZE_V2 = "widget_board_size_v2"
 
         // Удаляемые ключи старой системы виджетов.
         const val K_P1 = "widgets_page1"

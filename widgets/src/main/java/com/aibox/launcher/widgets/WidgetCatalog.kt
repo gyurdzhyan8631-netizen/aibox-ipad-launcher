@@ -12,7 +12,7 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/** Сетка рабочего стола: как на iPad — 2×2, 4×2 и 4×4. */
+/** Сетка рабочего стола: 2×2, 4×2, 4×4 и широкий 6×4 для крупных виджетов. */
 const val WIDGET_GRID_COLUMNS = 6
 const val WIDGET_GRID_ROWS = 10
 
@@ -35,7 +35,8 @@ enum class WidgetSizeClass(
 ) {
     SMALL("small", "2×2", 2, 2),
     MEDIUM("medium", "4×2", 4, 2),
-    LARGE("large", "4×4", 4, 4);
+    LARGE("large", "4×4", 4, 4),
+    EXTRA_LARGE("xl", "6×4", 6, 4);
 
     companion object {
         fun fromId(id: String?): WidgetSizeClass = entries.firstOrNull { it.id == id } ?: MEDIUM
@@ -86,7 +87,7 @@ enum class WidgetType(
         WidgetCategory.CLOCK,
         Icons.Rounded.AccessTime,
         Color(0xFFBF5AF2),
-        WidgetSizeClass.SMALL
+        WidgetSizeClass.MEDIUM
     ),
     BATTERY(
         "battery",
@@ -95,7 +96,7 @@ enum class WidgetType(
         WidgetCategory.BATTERY,
         Icons.Rounded.BatteryFull,
         Color(0xFF30D158),
-        WidgetSizeClass.SMALL
+        WidgetSizeClass.MEDIUM
     ),
     NOTES(
         "notes",
@@ -104,7 +105,7 @@ enum class WidgetType(
         WidgetCategory.NOTES,
         Icons.Rounded.Description,
         Color(0xFFFFD60A),
-        WidgetSizeClass.SMALL
+        WidgetSizeClass.MEDIUM
     ),
     PHOTOS(
         "photos",
@@ -161,23 +162,31 @@ private fun item(
 /** Стартовые рабочие столы — сразу с настоящими iPad-размерами. */
 fun defaultWidgetBoard(page: Int): List<WidgetItem> = when (page) {
     1 -> listOf(
-        item("p1-clock", WidgetType.CLOCK, 0, 0, WidgetSizeClass.SMALL),
-        item("p1-weather", WidgetType.WEATHER, 2, 0, WidgetSizeClass.MEDIUM),
-        item("p1-music", WidgetType.MUSIC, 0, 2, WidgetSizeClass.MEDIUM),
-        item("p1-calendar", WidgetType.CALENDAR, 2, 4, WidgetSizeClass.LARGE)
+        item("p1-clock", WidgetType.CLOCK, 0, 0, WidgetSizeClass.MEDIUM),
+        item("p1-weather", WidgetType.WEATHER, 0, 2, WidgetSizeClass.MEDIUM),
+        item("p1-music", WidgetType.MUSIC, 0, 4, WidgetSizeClass.MEDIUM),
+        item("p1-calendar", WidgetType.CALENDAR, 0, 6, WidgetSizeClass.LARGE)
     )
     else -> listOf(
         item("p2-stack", WidgetType.SMART_STACK, 0, 0, WidgetSizeClass.MEDIUM),
-        item("p2-notes", WidgetType.NOTES, 4, 0, WidgetSizeClass.SMALL),
-        item("p2-battery", WidgetType.BATTERY, 4, 2, WidgetSizeClass.SMALL),
-        item("p2-photos", WidgetType.PHOTOS, 0, 4, WidgetSizeClass.LARGE)
+        item("p2-notes", WidgetType.NOTES, 0, 2, WidgetSizeClass.MEDIUM),
+        item("p2-battery", WidgetType.BATTERY, 0, 4, WidgetSizeClass.MEDIUM),
+        item("p2-photos", WidgetType.PHOTOS, 0, 6, WidgetSizeClass.LARGE)
     )
 }
 
 fun nextWidgetSize(size: WidgetSizeClass): WidgetSizeClass = when (size) {
     WidgetSizeClass.SMALL -> WidgetSizeClass.MEDIUM
     WidgetSizeClass.MEDIUM -> WidgetSizeClass.LARGE
-    WidgetSizeClass.LARGE -> WidgetSizeClass.SMALL
+    WidgetSizeClass.LARGE -> WidgetSizeClass.EXTRA_LARGE
+    WidgetSizeClass.EXTRA_LARGE -> WidgetSizeClass.SMALL
+}
+
+/** Однократное увеличение старых сохранённых виджетов: мелкие становятся средними, средние — крупными. */
+fun enlargeExistingWidget(size: WidgetSizeClass): WidgetSizeClass = when (size) {
+    WidgetSizeClass.SMALL -> WidgetSizeClass.MEDIUM
+    WidgetSizeClass.MEDIUM -> WidgetSizeClass.LARGE
+    else -> size
 }
 
 private fun rectsOverlap(

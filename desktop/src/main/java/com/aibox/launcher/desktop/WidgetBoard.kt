@@ -13,8 +13,10 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -22,9 +24,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,8 +63,8 @@ import kotlin.math.roundToInt
 private val BoardAccent = Color(0xFF0A84FF)
 
 /**
- * Новая система рабочего стола: как на iPad — фиксированная сетка 6×10,
- * виджеты 2×2 / 4×2 / 4×4, свободное перетаскивание пальцем и смена размера.
+ * Новая система рабочего стола: сетка 6×10, виджеты 2×2 / 4×2 / 4×4 / 6×4,
+ * свободное перетаскивание пальцем и крупные кнопки «+» / «−» для смены размера.
  */
 @Composable
 fun WidgetBoard(
@@ -188,9 +190,10 @@ private fun WidgetBoardCell(
                     val startTime = System.currentTimeMillis()
                     val start = down.position
                     val reservedZone = with(density) { 40.dp.toPx() }
+                    val resizeZone = with(density) { 96.dp.toPx() }
                     val reserved = currentEditMode && (
                         (start.x <= reservedZone && start.y <= reservedZone) ||
-                            (start.x >= widthPx - reservedZone && start.y >= heightPx - reservedZone)
+                            (start.x >= widthPx - reservedZone && start.y >= heightPx - resizeZone)
                         )
                     if (reserved) {
                         while (true) {
@@ -260,24 +263,51 @@ private fun WidgetBoardCell(
                     .align(Alignment.TopStart)
                     .offset(x = (-6).dp, y = (-6).dp)
             )
-            Box(
-                contentAlignment = Alignment.Center,
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = 6.dp, y = 6.dp)
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(BoardAccent)
-                    .clickable { onResize(item.id, nextSize(item.size)) }
             ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                    contentDescription = "Размер ${item.size.title}",
-                    tint = Color.White,
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .size(20.dp)
-                        .graphicsLayer { rotationZ = 45f }
-                )
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (item.size != WidgetSizeClass.EXTRA_LARGE) BoardAccent else Color(0x660A84FF)
+                        )
+                        .clickable(enabled = item.size != WidgetSizeClass.EXTRA_LARGE) {
+                            onResize(item.id, resizeStep(item.size, 1))
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Увеличить виджет",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (item.size != WidgetSizeClass.SMALL) BoardAccent else Color(0x660A84FF)
+                        )
+                        .clickable(enabled = item.size != WidgetSizeClass.SMALL) {
+                            onResize(item.id, resizeStep(item.size, -1))
+                        }
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Remove,
+                        contentDescription = "Уменьшить виджет",
+                        tint = Color.White,
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
             Text(
                 text = item.size.title,
@@ -285,8 +315,8 @@ private fun WidgetBoardCell(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(y = (-8).dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 6.dp, y = (-6).dp)
                     .background(Color(0xAA000000), RoundedCornerShape(8.dp))
                     .padding(horizontal = 6.dp, vertical = 2.dp)
             )
@@ -294,10 +324,10 @@ private fun WidgetBoardCell(
     }
 }
 
-private fun nextSize(size: WidgetSizeClass): WidgetSizeClass = when (size) {
-    WidgetSizeClass.SMALL -> WidgetSizeClass.MEDIUM
-    WidgetSizeClass.MEDIUM -> WidgetSizeClass.LARGE
-    WidgetSizeClass.LARGE -> WidgetSizeClass.SMALL
+private fun resizeStep(size: WidgetSizeClass, delta: Int): WidgetSizeClass {
+    val values = WidgetSizeClass.entries
+    val index = values.indexOf(size).coerceAtLeast(0)
+    return values[(index + delta).coerceIn(0, values.lastIndex)]
 }
 
 @Composable
