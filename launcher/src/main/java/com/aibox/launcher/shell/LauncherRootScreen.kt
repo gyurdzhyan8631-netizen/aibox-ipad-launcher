@@ -64,7 +64,6 @@ import com.aibox.launcher.appdrawer.AppDrawerOverlay
 import com.aibox.launcher.controlcenter.ControlCenterSystemController
 import com.aibox.launcher.core.model.DayPeriod
 import com.aibox.launcher.core.model.InstalledApp
-import com.aibox.launcher.core.model.WeatherCondition
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
 import androidx.compose.ui.unit.Density
@@ -78,9 +77,7 @@ import com.aibox.launcher.settings.LauncherSettings
 import com.aibox.launcher.settings.SettingsScreen
 import com.aibox.launcher.settings.WeatherSource
 import com.aibox.launcher.system.SystemActionsHandler
-import com.aibox.launcher.wallpaper.DynamicSceneWallpaper
 import com.aibox.launcher.wallpaper.WallpaperLayer
-import com.aibox.launcher.wallpaper.dynamicSceneFor
 import com.aibox.launcher.widgets.WidgetType
 import com.aibox.launcher.widgets.WidgetWeatherInfo
 import com.aibox.launcher.weather.CityNotFoundException
@@ -389,8 +386,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         weatherRepo.coordinates()?.let { (lat, lon) -> SunCalc.sunriseSunset(lat, lon, today) }
     }
 
-    val nowMinutes = now.hour * 60 + now.minute
-
     val dayPeriod = when (now.hour) {
         in 5..10 -> DayPeriod.MORNING
         in 11..17 -> DayPeriod.DAY
@@ -483,17 +478,11 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 )
             }
     ) {
-        // 1. Обои: тема + время суток + погода
+        // 1. Обои: видео или системные обои Android
         WallpaperLayer(
             type = settings.wallpaperType,
             path = settings.wallpaperPath,
-            dayPeriod = dayPeriod,
-            weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
-            theme = settings.theme,
-            nowMinutes = nowMinutes,
-            sunriseMin = sunTimes?.first ?: 390,
-            sunsetMin = sunTimes?.second ?: 1110,
-            precipitation = settings.skyPrecipitation
+            modifier = Modifier.fillMaxSize()
         )
 
         // 2. Рабочие столы 1 и 2 — на весь экран, ничего не обрезается жёсткой границей
@@ -502,28 +491,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             modifier = Modifier.fillMaxSize()
         ) { page ->
             val pageNumber = page + 1
-            val scene = settings.dynamicSceneSelected ?: dynamicSceneFor(
-                weather = shownWeather?.condition ?: WeatherCondition.CLEAR,
-                nowMinutes = nowMinutes,
-                sunriseMin = sunTimes?.first ?: 390,
-                sunsetMin = sunTimes?.second ?: 1110
-            )
             Box(modifier = Modifier.fillMaxSize()) {
-                // Динамические обои принадлежат только первому столу; второй остаётся с обычными.
-                if (pageNumber == 1 && settings.dynamicWallpaper) {
-                    DynamicSceneWallpaper(
-                        scene = scene,
-                        pack = settings.dynamicScenePack,
-                        nowMinutes = nowMinutes,
-                        sunriseMin = sunTimes?.first ?: 390,
-                        sunsetMin = sunTimes?.second ?: 1110,
-                        rotationSeconds = settings.sceneStaySeconds,
-                        rotate = settings.sceneRotation && settings.dynamicSceneSelected == null,
-                        glassClock = settings.sceneGlassClock,
-                        clockScale = settings.clockScale,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                }
                 WidgetBoard(
                     items = settings.widgetBoard(pageNumber),
                     editMode = editMode,
@@ -564,9 +532,7 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     compact = compact,
                     scale = settings.clockScale,
                     style = settings.clockStyle,
-                    fontFamily = LauncherFonts.family(settings.clockFontId),
-                    showTime = !(settings.sceneGlassClock && settings.dynamicWallpaper &&
-                        pagerState.currentPage == 0)
+                    fontFamily = LauncherFonts.family(settings.clockFontId)
                 )
 
                 Row(
@@ -730,8 +696,7 @@ private fun ClockHeader(
     compact: Boolean,
     scale: Float,
     style: ClockStyle,
-    fontFamily: FontFamily,
-    showTime: Boolean = true
+    fontFamily: FontFamily
 ) {
     val ru = Locale("ru")
     val smallSize = (if (compact) 14f else 16f).sp
@@ -787,7 +752,6 @@ private fun ClockHeader(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        if (showTime) {
         when (style) {
             ClockStyle.LIGHT, ClockStyle.BOLD -> {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -850,14 +814,6 @@ private fun ClockHeader(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-        } else {
-            Text(
-                text = "$weekday · $date",
-                style = dateStyle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
         }
     }
 }

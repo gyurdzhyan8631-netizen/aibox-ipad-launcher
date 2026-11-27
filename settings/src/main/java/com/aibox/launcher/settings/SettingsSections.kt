@@ -40,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Accessibility
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Image as ImageIcon
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Cloud
@@ -94,15 +93,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.WallpaperType
-import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconPreview
 import com.aibox.launcher.icons.BuiltinIcons
 import com.aibox.launcher.icons.CustomIconStore
 import com.aibox.launcher.icons.rememberAppIcon
-import com.aibox.launcher.wallpaper.DynamicScene
-import com.aibox.launcher.wallpaper.DynamicScenePack
-import com.aibox.launcher.wallpaper.wallpaperPreviewColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -209,89 +204,6 @@ internal fun HomeSection(
                     if (settings.weatherSource == WeatherSource.CITY) WeatherSource.GPS else WeatherSource.CITY
                 )
             }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.WbSunny,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Динамические обои на 1-м столе",
-            subtitle = "3 набора × 6 состояний: горы, город, лес — по погоде и времени суток",
-            checked = settings.dynamicWallpaper,
-            onCheckedChange = { settings.updateDynamicWallpaper(it) }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.ImageIcon,
-            iconColor = Color(0xFF30B0C7),
-            title = "Вид обоев",
-            value = settings.dynamicScenePack.title,
-            subtitle = settings.dynamicScenePack.subtitle,
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Вид обоев первого стола",
-                        options = DynamicScenePack.entries.map { PickerOption(it.id, it.title) },
-                        selectedKey = settings.dynamicScenePack.id,
-                        onSelect = { key -> settings.updateDynamicScenePack(DynamicScenePack.fromId(key)) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.Palette,
-            iconColor = Color(0xFF5E5CE6),
-            title = "Состояние обоев",
-            value = settings.dynamicSceneSelected?.title ?: "Авто (по погоде)",
-            subtitle = "Авто выбирает сцену по погоде и восходу/закату, или закрепите любую вручную",
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Состояние динамических обоев",
-                        options = listOf(PickerOption("auto", "Авто (по погоде)")) +
-                            DynamicScene.entries.map { PickerOption(it.id, it.title) },
-                        selectedKey = settings.dynamicSceneId,
-                        onSelect = { key -> settings.updateDynamicSceneId(key) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Refresh,
-            iconColor = Color(0xFF30D158),
-            title = "Ротация сцен",
-            subtitle = "Авто переключает 6 состояний с плавным переходом 1,6 с",
-            checked = settings.sceneRotation,
-            onCheckedChange = { settings.updateSceneRotation(it) }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.AccessTime,
-            iconColor = Color(0xFF0A84FF),
-            title = "Время показа сцены",
-            value = "${settings.sceneStaySeconds} с",
-            subtitle = "Сколько секунд держится сцена до следующего перехода",
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Время показа сцены",
-                        options = listOf(10, 15, 20, 30, 45, 60, 120)
-                            .map { PickerOption(it.toString(), "$it с") },
-                        selectedKey = settings.sceneStaySeconds.toString(),
-                        onSelect = { key -> settings.updateSceneStaySeconds(key.toIntOrNull() ?: 60) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Widgets,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Стеклянные часы на обоех",
-            subtitle = "Часы залиты запечённой текстурой сцены — как в tvOS-лаунчере",
-            checked = settings.sceneGlassClock,
-            onCheckedChange = { settings.updateSceneGlassClock(it) }
         )
     }
 
@@ -479,16 +391,6 @@ internal fun SoundSection() {
 
 // ---------------------------------------------------------------- Персонализация
 
-private fun currentPeriodTitle(): String {
-    val hour = LocalTime.now().hour
-    return when (hour) {
-        in 5..10 -> "Утро"
-        in 11..17 -> "День"
-        in 18..21 -> "Вечер"
-        else -> "Ночь"
-    }
-}
-
 private fun percentOptions(values: List<Int>) =
     values.map { PickerOption(it.toString(), "$it%") }
 
@@ -505,7 +407,6 @@ internal fun PersonalizationSection(
     }
 
     // --- карточка «Обои» ---
-    val (previewTop, previewBottom) = wallpaperPreviewColors(settings.theme)
     SettingsGroup {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -519,60 +420,26 @@ internal fun PersonalizationSection(
                 modifier = Modifier
                     .size(width = 150.dp, height = 72.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        if (settings.wallpaperType == WallpaperType.THEME || settings.wallpaperType == WallpaperType.LIVE_SKY) {
-                            Brush.verticalGradient(listOf(previewTop, previewBottom))
-                        } else {
-                            Brush.verticalGradient(listOf(Color(0xFF2A2E3B), Color(0xFF14161E)))
-                        }
-                    )
+                    .background(Brush.verticalGradient(listOf(Color(0xFF2A2E3B), Color(0xFF14161E))))
             ) {
-                if (settings.wallpaperType != WallpaperType.THEME) {
-                    Text(settings.wallpaperType.title, color = Color.White, fontSize = 12.sp)
-                }
+                Text(settings.wallpaperType.title, color = Color.White, fontSize = 12.sp)
             }
             Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text("Обои", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    when (settings.wallpaperType) {
-                        WallpaperType.THEME -> "Тема: ${settings.theme.title}"
-                        WallpaperType.LIVE_SKY -> "Живое небо · тема ${settings.theme.title}"
-                        else -> settings.wallpaperType.title
-                    },
+                    settings.wallpaperType.title,
                     color = SettingsColors.textSecondary,
                     fontSize = 14.sp
                 )
                 Text(
-                    "Добавить фото, живые обои, системные обои",
+                    "Видео или системные обои Android",
                     color = SettingsColors.textSecondary,
                     fontSize = 12.sp
                 )
             }
         }
     }
-
-    // --- темы оформления ---
-    SectionTitle("Темы оформления")
-    WallpaperTheme.entries.chunked(4).forEach { rowThemes ->
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            rowThemes.forEach { theme ->
-                ThemeCard(
-                    theme = theme,
-                    selected = theme == settings.theme &&
-                        (settings.wallpaperType == WallpaperType.THEME || settings.wallpaperType == WallpaperType.LIVE_SKY),
-                    onClick = {
-                        settings.updateTheme(theme)
-                        if (settings.wallpaperType != WallpaperType.LIVE_SKY) {
-                            settings.selectWallpaper(WallpaperType.THEME)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-    }
-    HintText("Сейчас: ${currentPeriodTitle()}")
 
     // --- параметры ---
     SettingsGroup {
@@ -766,48 +633,6 @@ internal fun FontSection(settings: LauncherSettings, onPick: (PickerRequest) -> 
         )
     }
     HintText("Системный шрифт повторяет шрифт Android. Остальные встроены в лаунчер и не требуют загрузки.")
-}
-
-@Composable
-private fun ThemeCard(
-    theme: WallpaperTheme,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val (top, bottom) = wallpaperPreviewColors(theme)
-    val shape = RoundedCornerShape(16.dp)
-    Box(
-        modifier = modifier
-            .height(64.dp)
-            .clip(shape)
-            .background(Brush.verticalGradient(listOf(top, bottom)))
-            .border(
-                width = if (selected) 3.dp else 1.dp,
-                color = if (selected) SettingsColors.accent else Color(0x33FFFFFF),
-                shape = shape
-            )
-            .clickable(onClick = onClick)
-            .padding(10.dp)
-    ) {
-        Text(
-            text = theme.title,
-            color = Color.White,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.align(Alignment.BottomStart)
-        )
-        if (selected) {
-            Icon(
-                imageVector = Icons.Rounded.Check,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(18.dp)
-            )
-        }
-    }
 }
 
 // ---------------------------------------------------------------- Сторонние иконки
@@ -1383,104 +1208,58 @@ internal fun AboutSection() {
 // ---------------------------------------------------------------- Обои
 
 @Composable
-internal fun WallpaperSection(
-    settings: LauncherSettings,
-    onOpenSection: (SettingsSection) -> Unit,
-    onPick: (PickerRequest) -> Unit
-) {
+internal fun WallpaperSection(settings: LauncherSettings) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var items by remember { mutableStateOf(WallpaperStore.list(context)) }
+    var items by remember {
+        mutableStateOf(WallpaperStore.list(context).filter { WallpaperStore.isVideo(it) })
+    }
     var busy by remember { mutableStateOf(false) }
 
-    fun importPicked(uri: android.net.Uri?, video: Boolean) {
-        if (uri == null) return
+    fun refreshItems() {
+        items = WallpaperStore.list(context).filter { WallpaperStore.isVideo(it) }
+    }
+
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
         busy = true
         scope.launch {
-            val file = kotlinx.coroutines.withContext(Dispatchers.IO) {
-                WallpaperStore.import(context, uri, video)
+            val file = withContext(Dispatchers.IO) {
+                WallpaperStore.import(context, uri, video = true)
             }
             busy = false
-            items = WallpaperStore.list(context)
+            refreshItems()
             if (file != null) {
-                settings.selectWallpaper(if (video) WallpaperType.VIDEO else WallpaperType.IMAGE, file.absolutePath)
+                settings.selectWallpaper(WallpaperType.VIDEO, file.absolutePath)
             } else {
                 Toast.makeText(context, "Не удалось добавить файл", Toast.LENGTH_SHORT).show()
             }
         }
     }
-
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        importPicked(uri, video = false)
-    }
-    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        importPicked(uri, video = true)
-    }
     // Системный выбор обоев: тип меняется только если пользователь действительно выбрал обои.
     val pickSystemWallpaper = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) settings.selectWallpaper(WallpaperType.SYSTEM)
     }
-    fun launchPicker(video: Boolean) {
-        runCatching { if (video) pickVideo.launch("video/*") else pickImage.launch("image/*") }
-            .onFailure {
-                Toast.makeText(context, "На устройстве нет приложения для выбора файлов", Toast.LENGTH_LONG).show()
-            }
-    }
 
     SettingsGroup {
-        SettingsRow(
-            icon = Icons.Rounded.Palette,
-            iconColor = Color(0xFF5E5CE6),
-            title = "Темы оформления",
-            value = if (settings.wallpaperType == WallpaperType.THEME) "Выбрано" else "",
-            subtitle = "Градиенты, включая «Авто (по солнцу)». Для живого неба выберите тему в «Персонализации»",
-            onClick = {
-                settings.selectWallpaper(WallpaperType.THEME)
-                onOpenSection(SettingsSection.PERSONALIZATION)
-            }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.WbSunny,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Живое небо",
-            value = if (settings.wallpaperType == WallpaperType.LIVE_SKY) "Выбрано" else "",
-            subtitle = "Солнце и луна идут по реальному времени суток, дождь и снег — по погоде. " +
-                "Хорошо сочетается с темами День, Рассвет и Ночь",
-            onClick = { settings.selectWallpaper(WallpaperType.LIVE_SKY) }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Cloud,
-            iconColor = Color(0xFF64D2FF),
-            title = "Осадки в живом небе",
-            subtitle = "Дождь и снег. Выключите, если слабое устройство",
-            checked = settings.skyPrecipitation,
-            onCheckedChange = { settings.updateSkyPrecipitation(it) }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.ImageIcon,
-            iconColor = Color(0xFF30D158),
-            title = "Добавить фото",
-            subtitle = if (busy) "Копирование…" else "Свой снимок как обои главного экрана",
-            onClick = { launchPicker(video = false) }
-        )
-        RowDivider()
         SettingsRow(
             icon = Icons.Rounded.Videocam,
             iconColor = Color(0xFFFF375F),
             title = "Добавить живые обои (видео)",
-            subtitle = "Видео без звука играет по кругу. Расходует больше ресурсов",
-            onClick = { launchPicker(video = true) }
+            subtitle = if (busy) "Копирование…" else "Видео без звука играет по кругу",
+            onClick = {
+                runCatching { pickVideo.launch("video/*") }.onFailure {
+                    Toast.makeText(context, "На устройстве нет приложения для выбора файлов", Toast.LENGTH_LONG).show()
+                }
+            }
         )
         RowDivider()
         SettingsRow(
             icon = Icons.Rounded.Apps,
             iconColor = Color(0xFF0A84FF),
-            title = "Системные и живые обои Android",
+            title = "Системные обои Android",
             value = if (settings.wallpaperType == WallpaperType.SYSTEM) "Выбрано" else "",
-            subtitle = "Открыть выбор системных и живых обоев Android",
+            subtitle = "Открыть системный выбор обоев",
             onClick = {
                 val chooser = android.content.Intent.createChooser(
                     android.content.Intent(android.content.Intent.ACTION_SET_WALLPAPER),
@@ -1493,106 +1272,15 @@ internal fun WallpaperSection(
         )
     }
 
-    SectionTitle("Динамические обои 1-го стола")
-    SettingsGroup {
-        SwitchRow(
-            icon = Icons.Rounded.WbSunny,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Показывать на первом столе",
-            subtitle = "Реалистичные сцены поверх выбранных обоев",
-            checked = settings.dynamicWallpaper,
-            onCheckedChange = { settings.updateDynamicWallpaper(it) }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.ImageIcon,
-            iconColor = Color(0xFF30B0C7),
-            title = "Вид: горы / город / лес",
-            value = settings.dynamicScenePack.title,
-            subtitle = settings.dynamicScenePack.subtitle,
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Вид обоев первого стола",
-                        options = DynamicScenePack.entries.map { PickerOption(it.id, it.title) },
-                        selectedKey = settings.dynamicScenePack.id,
-                        onSelect = { key -> settings.updateDynamicScenePack(DynamicScenePack.fromId(key)) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.Palette,
-            iconColor = Color(0xFF5E5CE6),
-            title = "Состояние",
-            value = settings.dynamicSceneSelected?.title ?: "Авто (по погоде)",
-            subtitle = "Рассвет, день, ночь, дождь, снег или ветер",
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Состояние динамических обоев",
-                        options = listOf(PickerOption("auto", "Авто (по погоде)")) +
-                            DynamicScene.entries.map { PickerOption(it.id, it.title) },
-                        selectedKey = settings.dynamicSceneId,
-                        onSelect = { key -> settings.updateDynamicSceneId(key) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Refresh,
-            iconColor = Color(0xFF30D158),
-            title = "Ротация сцен",
-            subtitle = "6 состояний с плавным переходом 1,6 с",
-            checked = settings.sceneRotation,
-            onCheckedChange = { settings.updateSceneRotation(it) }
-        )
-        RowDivider()
-        SettingsRow(
-            icon = Icons.Rounded.AccessTime,
-            iconColor = Color(0xFF0A84FF),
-            title = "Время показа сцены",
-            value = "${settings.sceneStaySeconds} с",
-            subtitle = "Интервал до следующей сцены",
-            onClick = {
-                onPick(
-                    PickerRequest(
-                        title = "Время показа сцены",
-                        options = listOf(10, 15, 20, 30, 45, 60, 120)
-                            .map { PickerOption(it.toString(), "$it с") },
-                        selectedKey = settings.sceneStaySeconds.toString(),
-                        onSelect = { key -> settings.updateSceneStaySeconds(key.toIntOrNull() ?: 60) }
-                    )
-                )
-            }
-        )
-        RowDivider()
-        SwitchRow(
-            icon = Icons.Rounded.Widgets,
-            iconColor = Color(0xFFFF9F0A),
-            title = "Стеклянные часы на обоех",
-            subtitle = "Заливка чась текстурой сцены вместо обычного заголовка",
-            checked = settings.sceneGlassClock,
-            onCheckedChange = { settings.updateSceneGlassClock(it) }
-        )
-    }
-    HintText(
-        "В авто-режиме сцена меняется по погоде Open-Meteo и реальному времени восхода/заката. " +
-            "Второй рабочий стол остаётся с обычными обоями."
-    )
-
-    SectionTitle("Мои обои")
+    SectionTitle("Мои видео")
     if (items.isEmpty()) {
         HintText("Пока ничего не добавлено.")
     } else {
         SettingsGroup {
             items.forEachIndexed { index, file ->
                 if (index > 0) RowDivider()
-                val video = WallpaperStore.isVideo(file)
-                val selected = settings.wallpaperPath == file.absolutePath &&
-                    (settings.wallpaperType == WallpaperType.IMAGE || settings.wallpaperType == WallpaperType.VIDEO)
+                val selected = settings.wallpaperType == WallpaperType.VIDEO &&
+                    settings.wallpaperPath == file.absolutePath
                 val stamp = remember(file) {
                     SimpleDateFormat("d MMM, HH:mm", Locale("ru")).format(Date(file.lastModified()))
                 }
@@ -1600,22 +1288,14 @@ internal fun WallpaperSection(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            settings.selectWallpaper(
-                                if (video) WallpaperType.VIDEO else WallpaperType.IMAGE,
-                                file.absolutePath
-                            )
-                        }
+                        .clickable { settings.selectWallpaper(WallpaperType.VIDEO, file.absolutePath) }
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    IconBadge(
-                        icon = if (video) Icons.Rounded.Videocam else Icons.Rounded.ImageIcon,
-                        color = if (video) Color(0xFFFF375F) else Color(0xFF30D158)
-                    )
+                    IconBadge(icon = Icons.Rounded.Videocam, color = Color(0xFFFF375F))
                     Spacer(Modifier.width(14.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (video) "Живые обои · $stamp" else "Фото · $stamp",
+                            text = "Живые обои · $stamp",
                             color = Color.White,
                             fontSize = 17.sp
                         )
@@ -1633,7 +1313,7 @@ internal fun WallpaperSection(
                             .clickable {
                                 file.delete()
                                 settings.wallpaperFileDeleted(file.absolutePath)
-                                items = WallpaperStore.list(context)
+                                refreshItems()
                             }
                             .padding(6.dp)
                     )
@@ -1641,7 +1321,7 @@ internal fun WallpaperSection(
             }
         }
     }
-    HintText("Системные живые обои показываются через прозрачное окно лаунчера и зависят от прошивки устройства.")
+    HintText("Системные обои показываются через прозрачное окно лаунчера и зависят от прошивки устройства.")
 }
 
 // ---------------------------------------------------------------- Обновление

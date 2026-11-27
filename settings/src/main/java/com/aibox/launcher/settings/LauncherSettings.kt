@@ -5,11 +5,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.aibox.launcher.core.model.WallpaperTheme
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.ui.LauncherFonts
-import com.aibox.launcher.wallpaper.DynamicScene
-import com.aibox.launcher.wallpaper.DynamicScenePack
 import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
 import com.aibox.launcher.widgets.WidgetType
@@ -30,7 +27,7 @@ enum class ClockStyle(val id: String, val title: String) {
     }
 }
 
-/** Откуда лаунчер берёт погоду для виджетов и динамических обоев. */
+/** Откуда лаунчер берёт погоду для виджетов. */
 enum class WeatherSource(val id: String, val title: String) {
     CITY("city", "Город вручную"),
     GPS("gps", "По GPS");
@@ -55,6 +52,21 @@ class LauncherSettings(private val prefs: SharedPreferences) {
                 .remove(K_SIZES)
                 .remove(K_WIDGET)
                 .apply()
+        }
+
+        // Старая система обоев (темы, фото, живое небо, динамические сцены) больше не используется.
+        val legacyWallpaperKeys = listOf(
+            "wallpaper_theme", "sky_precip", "dynamic_scene_wallpaper",
+            "dynamic_scene_pack", "dynamic_scene_id", "scene_rotation",
+            "scene_seconds", "scene_glass_clock"
+        )
+        if (legacyWallpaperKeys.any { prefs.contains(it) }) {
+            val editor = prefs.edit()
+            legacyWallpaperKeys.forEach { editor.remove(it) }
+            editor.apply()
+        }
+        if (prefs.getString(K_WP_TYPE, null) !in setOf("video", "system")) {
+            prefs.edit().putString(K_WP_TYPE, "system").putString(K_WP_PATH, "").apply()
         }
 
         // Виджеты стали крупнее: один раз увеличиваем сохранённые 2×2 → 4×2 и 4×2 → 4×4.
@@ -102,8 +114,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     )
         private set
 
-    var theme by mutableStateOf(WallpaperTheme.fromId(prefs.getString(K_THEME, null)))
-        private set
     var clockStyle by mutableStateOf(ClockStyle.fromId(prefs.getString(K_CLOCK_STYLE, null)))
         private set
     var interfaceFontId by mutableStateOf(
@@ -128,35 +138,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var weatherSource by mutableStateOf(WeatherSource.fromId(prefs.getString(K_WEATHER_SOURCE, null)))
         private set
 
-    /** Динамические обои из 6 сцен на первом рабочем столе. */
-    var dynamicWallpaper by mutableStateOf(prefs.getBoolean(K_DYNAMIC_WALLPAPER, true))
-        private set
-
-    /** Набор обоев, который пользователь выбрал в лаунчере: горы, город или лес. */
-    var dynamicScenePack by mutableStateOf(
-        DynamicScenePack.fromId(prefs.getString(K_DYNAMIC_SCENE_PACK, null))
-    )
-        private set
-
-    /** "auto" — состояние по погоде, иначе выбранная пользователем сцена. */
-    var dynamicSceneId by mutableStateOf(prefs.getString(K_DYNAMIC_SCENE_ID, "auto") ?: "auto")
-        private set
-
-    val dynamicSceneSelected: DynamicScene?
-        get() = if (dynamicSceneId == "auto") null else DynamicScene.fromId(dynamicSceneId)
-
-    /** Автоматическая ротация сцен на первом столе (как в tvOS-Launcher). */
-    var sceneRotation by mutableStateOf(prefs.getBoolean(K_SCENE_ROTATION, true))
-        private set
-
-    /** Сколько секунд держится сцена перед crossfade: 10/15/20/30/45/60/120. */
-    var sceneStaySeconds by mutableStateOf(prefs.getInt(K_SCENE_SECONDS, 60))
-        private set
-
-    /** Стеклянные часы внутри сцены вместо обычного заголовка. */
-    var sceneGlassClock by mutableStateOf(prefs.getBoolean(K_SCENE_GLASS_CLOCK, false))
-        private set
-
     /** Новая iPad-система: позиции виджетов хранятся в ячейках сетки 6×10. */
     var widgetBoard1 by mutableStateOf(
         parseBoard(prefs.getString(K_BOARD1, null), defaultWidgetBoard(1))
@@ -165,10 +146,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     var widgetBoard2 by mutableStateOf(
         parseBoard(prefs.getString(K_BOARD2, null), defaultWidgetBoard(2))
     )
-        private set
-
-    /** Дождь и снег в «Живом небе» (самая «тяжёлая» часть анимации). */
-    var skyPrecipitation by mutableStateOf(prefs.getBoolean(K_SKY_PRECIP, true))
         private set
 
     var wallpaperType by mutableStateOf(WallpaperType.fromId(prefs.getString(K_WP_TYPE, null)))
@@ -189,11 +166,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateClockScale(value: Float) {
         clockScale = value.coerceIn(0.6f, 1.4f)
         prefs.edit().putFloat(K_CLOCK, clockScale).apply()
-    }
-
-    fun updateTheme(value: WallpaperTheme) {
-        theme = value
-        prefs.edit().putString(K_THEME, value.id).apply()
     }
 
     fun updateClockStyle(value: ClockStyle) {
@@ -239,36 +211,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun updateWeatherSource(value: WeatherSource) {
         weatherSource = value
         prefs.edit().putString(K_WEATHER_SOURCE, value.id).apply()
-    }
-
-    fun updateDynamicWallpaper(value: Boolean) {
-        dynamicWallpaper = value
-        prefs.edit().putBoolean(K_DYNAMIC_WALLPAPER, value).apply()
-    }
-
-    fun updateDynamicScenePack(value: DynamicScenePack) {
-        dynamicScenePack = value
-        prefs.edit().putString(K_DYNAMIC_SCENE_PACK, value.id).apply()
-    }
-
-    fun updateDynamicSceneId(value: String) {
-        dynamicSceneId = if (value == "auto" || DynamicScene.entries.any { it.id == value }) value else "auto"
-        prefs.edit().putString(K_DYNAMIC_SCENE_ID, dynamicSceneId).apply()
-    }
-
-    fun updateSceneRotation(value: Boolean) {
-        sceneRotation = value
-        prefs.edit().putBoolean(K_SCENE_ROTATION, value).apply()
-    }
-
-    fun updateSceneStaySeconds(value: Int) {
-        sceneStaySeconds = if (value in intArrayOf(10, 15, 20, 30, 45, 60, 120)) value else 60
-        prefs.edit().putInt(K_SCENE_SECONDS, sceneStaySeconds).apply()
-    }
-
-    fun updateSceneGlassClock(value: Boolean) {
-        sceneGlassClock = value
-        prefs.edit().putBoolean(K_SCENE_GLASS_CLOCK, value).apply()
     }
 
     fun widgetBoard(page: Int): List<WidgetItem> = if (page == 1) widgetBoard1 else widgetBoard2
@@ -372,20 +314,15 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         updateClockScale(1f)
     }
 
-    fun updateSkyPrecipitation(value: Boolean) {
-        skyPrecipitation = value
-        prefs.edit().putBoolean(K_SKY_PRECIP, value).apply()
-    }
-
     fun selectWallpaper(type: WallpaperType, path: String = "") {
         wallpaperType = type
         wallpaperPath = path
         prefs.edit().putString(K_WP_TYPE, type.id).putString(K_WP_PATH, path).apply()
     }
 
-    /** Файл обоев удалён с устройства — вернуться к теме оформления. */
+    /** Файл обоев удалён с устройства — вернуться к системным обоям. */
     fun wallpaperFileDeleted(path: String) {
-        if (wallpaperPath == path) selectWallpaper(WallpaperType.THEME)
+        if (wallpaperPath == path) selectWallpaper(WallpaperType.SYSTEM)
     }
 
     private fun encodeBoard(items: List<WidgetItem>): String =
@@ -419,7 +356,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     private companion object {
         const val DEFAULT_UI_SCALE = 0.85f
-        const val K_SKY_PRECIP = "sky_precip"
         const val K_UI = "ui_scale"
         const val K_STATUS = "status_scale"
         const val K_QUICK = "quick_scale"
@@ -429,7 +365,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_PANEL = "panel_scale"
         const val K_ICON = "icon_scale"
         const val K_CLOCK = "clock_scale"
-        const val K_THEME = "wallpaper_theme"
         const val K_CLOCK_STYLE = "clock_style"
         const val K_INTERFACE_FONT = "interface_font"
         const val K_CLOCK_FONT = "clock_font"
@@ -439,12 +374,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_VIDEO = "video_package"
         const val K_CITY = "weather_city"
         const val K_WEATHER_SOURCE = "weather_source"
-        const val K_DYNAMIC_WALLPAPER = "dynamic_scene_wallpaper"
-        const val K_DYNAMIC_SCENE_PACK = "dynamic_scene_pack"
-        const val K_DYNAMIC_SCENE_ID = "dynamic_scene_id"
-        const val K_SCENE_ROTATION = "scene_rotation"
-        const val K_SCENE_SECONDS = "scene_seconds"
-        const val K_SCENE_GLASS_CLOCK = "scene_glass_clock"
         const val K_WP_TYPE = "wallpaper_type"
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"
