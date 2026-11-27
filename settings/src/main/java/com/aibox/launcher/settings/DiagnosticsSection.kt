@@ -7,6 +7,7 @@ import android.view.Choreographer
 import android.view.WindowManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BatteryFull
 import androidx.compose.material.icons.rounded.Code
@@ -57,7 +58,9 @@ internal fun collectDiagnostics(context: Context): DeviceDiagnostics {
         soc = Build.SOC_MODEL?.takeIf { it.isNotBlank() } ?: Build.HARDWARE,
         board = Build.BOARD,
         abis = Build.SUPPORTED_ABIS.joinToString(", "),
-        gpu = glInfo.glRenderer?.takeIf { it.isNotBlank() } ?: "не сообщается системой",
+        gpu = runCatching {
+            glInfo.javaClass.getField("glRenderer").get(glInfo) as? String
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: "не сообщается системой",
         glEs = glInfo.glEsVersion.ifBlank { "req ${glInfo.reqGlEsVersion}" },
         ramTotal = formatBytes(memory.totalMem),
         ramAvailable = formatBytes(memory.availMem),
