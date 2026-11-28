@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="▶"
+        android:textColor="#FF453A"
+        android:textSize="30sp" />
+
+    <TextView
+        android:id="@+id/youtube_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="YouTube"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/youtube_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Смотреть видео"
+        android:textColor="#B9C8E0"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/youtube_open"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Открыть →"
+        android:textColor="#0381FE"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>

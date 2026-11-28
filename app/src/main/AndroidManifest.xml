@@ -60,5 +60,70 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- Встроенные настоящие AppWidget: доступны даже если системный пикер пуст. -->
+        <receiver
+            android:name="com.aibox.launcher.widgets.WeatherWidgetProvider"
+            android:exported="true"
+            android:label="Погода">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.aibox.launcher.widget.REFRESH_WEATHER" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.aibox.launcher.widgets.NavigatorWidgetProvider"
+            android:exported="true"
+            android:label="Навигатор">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/navigator_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.aibox.launcher.widgets.YouTubeWidgetProvider"
+            android:exported="true"
+            android:label="YouTube">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/youtube_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.aibox.launcher.widgets.MusicWidgetProvider"
+            android:exported="true"
+            android:label="Музыка">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.aibox.launcher.widget.MUSIC_PREV" />
+                <action android:name="com.aibox.launcher.widget.MUSIC_PLAY" />
+                <action android:name="com.aibox.launcher.widget.MUSIC_NEXT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/music_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name="com.aibox.launcher.widgets.MemoryWidgetProvider"
+            android:exported="true"
+            android:label="Память">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/memory_widget_info" />
+        </receiver>
     </application>
 </manifest>

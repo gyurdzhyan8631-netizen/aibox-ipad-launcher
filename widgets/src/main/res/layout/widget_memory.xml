@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/memory_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Память"
+        android:textColor="#B9C8E0"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/memory_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="—"
+        android:textColor="#FFFFFF"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/memory_detail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#B9C8E0"
+        android:textSize="11sp" />
+
+    <ProgressBar
+        android:id="@+id/memory_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="8dp"
+        android:layout_marginTop="10dp"
+        android:max="100" />
+
+    <TextView
+        android:id="@+id/memory_open"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Хранилище →"
+        android:textColor="#0381FE"
+        android:textSize="12sp" />
+</LinearLayout>

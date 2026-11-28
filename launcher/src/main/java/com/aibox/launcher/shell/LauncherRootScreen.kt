@@ -4,6 +4,7 @@ import android.Manifest
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProviderInfo
+import android.content.ComponentName
 import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
@@ -32,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
@@ -72,6 +74,7 @@ import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
 import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
+import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import com.aibox.launcher.core.ui.theme.LocalWidgetStyle
 import androidx.compose.ui.unit.Density
 import com.aibox.launcher.desktop.WidgetBoard
@@ -85,7 +88,9 @@ import com.aibox.launcher.settings.SettingsScreen
 import com.aibox.launcher.settings.WeatherSource
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.WallpaperLayer
+import com.aibox.launcher.widgets.ACTION_REFRESH_WEATHER_WIDGET
 import com.aibox.launcher.widgets.HostedWidgetSurface
+import com.aibox.launcher.widgets.LauncherWidgetProviders
 import com.aibox.launcher.widgets.MissingWidgetPlaceholder
 import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
@@ -137,6 +142,7 @@ fun LauncherRootScreen() {
 @Composable
 private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE) }
     val systemActions = remember { SystemActionsHandler(context) }
     val controller = remember(context) { ControlCenterSystemController(context) }
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -148,6 +154,8 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val appWidgetHost = remember { LauncherAppWidgetHost(context) }
     val trackedWidgetIds = remember { mutableStateMapOf<Int, Unit>() }
     var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
+    var showWidgetPicker by remember { mutableStateOf(false) }
+    var widgetPickerMessage by remember { mutableStateOf<String?>(null) }
 
     DisposableEffect(appWidgetHost) {
         appWidgetHost.startListening()
@@ -175,6 +183,39 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             appWidgetHost.deleteAppWidgetId(id)
             trackedWidgetIds.remove(id)
         }
+    }
+
+    /** Привязка собственного AppWidget: лаунчеру разрешено биндить провайдеры своего пакета. */
+    fun addBuiltinWidget(
+        widget: BuiltinWidget,
+        page: Int,
+        column: Int? = null,
+        row: Int? = null
+    ): Boolean {
+        val id = appWidgetHost.allocateAppWidgetId()
+        val bound = appWidgetManager.bindAppWidgetIdIfAllowed(id, widget.provider)
+        if (!bound) {
+            appWidgetHost.deleteAppWidgetId(id)
+            return false
+        }
+        trackedWidgetIds[id] = Unit
+        settings.addHostedWidget(page, id, widget.size)
+        if (column != null && row != null) settings.moveWidget(page, id.toString(), column, row)
+        return true
+    }
+
+    // Первый запуск: оба стола получают рабочие виджеты, а не пустые экраны.
+    LaunchedEffect(Unit) {
+        if (prefs.getBoolean(KEY_BUILTIN_WIDGETS_SEEDED, false)) return@LaunchedEffect
+        if (settings.widgetBoard1.isEmpty() && settings.widgetBoard2.isEmpty()) {
+            val page1Spots = listOf(0 to 0, 0 to 2, 4 to 0, 4 to 2, 0 to 4)
+            val page2Spots = listOf(0 to 0, 4 to 0, 0 to 2, 4 to 2, 0 to 4)
+            BUILTIN_WIDGETS.forEachIndexed { index, widget ->
+                addBuiltinWidget(widget, 1, page1Spots[index].first, page1Spots[index].second)
+                addBuiltinWidget(widget, 2, page2Spots[index].first, page2Spots[index].second)
+            }
+        }
+        prefs.edit().putBoolean(KEY_BUILTIN_WIDGETS_SEEDED, true).apply()
     }
 
     val bindWidgetLauncher = rememberLauncherForActivityResult(
@@ -327,6 +368,9 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             result.onSuccess {
                 weather = it
                 weatherError = null
+                context.sendBroadcast(
+                    Intent(ACTION_REFRESH_WEATHER_WIDGET).setPackage(context.packageName)
+                )
             }
             result.onFailure {
                 weatherError = when {
@@ -537,7 +581,10 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                         id.toIntOrNull()?.let { trackedWidgetIds.remove(it) }
                         settings.removeWidget(pageNumber, id)
                     },
-                    onAdd = { addSystemWidget() },
+                    onAdd = {
+                        widgetPickerMessage = null
+                        showWidgetPicker = true
+                    },
                     topPadding = pageTop,
                     bottomPadding = pageBottom
                 )
@@ -707,8 +754,134 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             weatherStatus = weatherStatus,
             onClose = { showSettings = false }
         )
+
+        // 8. Пикер виджетов: встроенные AppWidget + системный пикер приложений.
+        if (showWidgetPicker) {
+            BuiltinWidgetPicker(
+                accent = LocalLauncherTokens.current.accent,
+                message = widgetPickerMessage,
+                onPick = { widget ->
+                    if (addBuiltinWidget(widget, pagerState.currentPage + 1)) {
+                        showWidgetPicker = false
+                        widgetPickerMessage = null
+                    } else {
+                        widgetPickerMessage = "Не удалось привязать виджет. Проверьте, что лаунчер выбран по умолчанию."
+                    }
+                },
+                onSystemPicker = {
+                    showWidgetPicker = false
+                    addSystemWidget()
+                },
+                onDismiss = { showWidgetPicker = false }
+            )
+        }
     }
 }
+
+/** Список встроенных виджетов и переход к системному пикеру приложений. */
+@Composable
+private fun BuiltinWidgetPicker(
+    accent: Color,
+    message: String?,
+    onPick: (BuiltinWidget) -> Unit,
+    onSystemPicker: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xCC080B12))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.6f)
+                .clip(RoundedCornerShape(28.dp))
+                .background(Color(0xF21B2331))
+                .border(1.dp, accent.copy(alpha = 0.5f), RoundedCornerShape(28.dp))
+                .clickable(onClick = {})
+                .padding(24.dp)
+        ) {
+            Text(
+                text = "Добавить виджет",
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Погода, навигатор, YouTube, музыка и память уже встроены",
+                color = Color(0xFFB9C8E0),
+                fontSize = 13.sp
+            )
+            if (message != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(text = message, color = Color(0xFFFF9A8F), fontSize = 13.sp)
+            }
+            Spacer(Modifier.height(16.dp))
+            BUILTIN_WIDGETS.forEach { widget ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(Color(0x33FFFFFF))
+                        .clickable { onPick(widget) }
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(accent.copy(alpha = 0.35f))
+                    ) {
+                        Text(widget.symbol, color = Color.White, fontSize = 22.sp)
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(widget.title, color = Color.White, fontSize = 16.sp)
+                        Text(widget.subtitle, color = Color(0xFFB9C8E0), fontSize = 12.sp)
+                    }
+                    Text("+", color = accent, fontSize = 24.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(accent.copy(alpha = 0.28f))
+                    .clickable(onClick = onSystemPicker)
+                    .padding(14.dp)
+            ) {
+                Text("Виджеты других приложений", color = Color.White, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+/** Встроенный системный виджет, который всегда доступен на AI Box. */
+private data class BuiltinWidget(
+    val provider: ComponentName,
+    val title: String,
+    val subtitle: String,
+    val symbol: String,
+    val size: WidgetSizeClass
+)
+
+private val BUILTIN_WIDGETS = listOf(
+    BuiltinWidget(LauncherWidgetProviders.WEATHER, "Погода", "Температура и город", "☀", WidgetSizeClass.MEDIUM),
+    BuiltinWidget(LauncherWidgetProviders.NAVIGATOR, "Навигатор", "Маршрут и приложение", "➤", WidgetSizeClass.MEDIUM),
+    BuiltinWidget(LauncherWidgetProviders.YOUTUBE, "YouTube", "Видео", "▶", WidgetSizeClass.SMALL),
+    BuiltinWidget(LauncherWidgetProviders.MUSIC, "Музыка", "Плеер и управление", "♫", WidgetSizeClass.MEDIUM),
+    BuiltinWidget(LauncherWidgetProviders.MEMORY, "Память", "Свободное место", "▣", WidgetSizeClass.SMALL)
+)
+
+private const val KEY_BUILTIN_WIDGETS_SEEDED = "builtin_widgets_seeded_v1"
 
 /** Хост системных виджетов лаунчера. Один id на все рабочие столы. */
 private class LauncherAppWidgetHost(context: Context) : AppWidgetHost(context, HOST_ID) {

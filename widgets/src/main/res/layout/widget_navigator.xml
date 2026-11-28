@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_card_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <TextView
+        android:id="@+id/nav_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Навигация"
+        android:textColor="#B9C8E0"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/nav_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Куда едем?"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/nav_app"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Yandex Navi / Карты"
+        android:textColor="#B9C8E0"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/nav_open"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="#0381FE"
+        android:padding="8dp"
+        android:text="Построить маршрут"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+</LinearLayout>
