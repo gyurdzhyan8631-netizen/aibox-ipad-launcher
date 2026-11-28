@@ -19,6 +19,26 @@ enum class VisualStyle(val title: String) {
     }
 }
 
+/**
+ * Оформление системных AppWidget. Выбирается в «Размеры → Стиль виджетов»
+ * и по умолчанию следует за брендовой обложкой из «Стили OS».
+ */
+enum class WidgetStyle(val id: String, val title: String) {
+    IPAD("ipad", "iPad"),
+    PIXEL("pixel", "Google Pixel"),
+    ONE_UI("one_ui", "Samsung One UI");
+
+    companion object {
+        fun fromId(id: String?): WidgetStyle = entries.firstOrNull { it.id == id } ?: IPAD
+
+        fun forVisualStyle(style: VisualStyle): WidgetStyle = when (style) {
+            VisualStyle.SAMSUNG_TAB -> ONE_UI
+            VisualStyle.PIXEL_FOLD -> PIXEL
+            else -> IPAD
+        }
+    }
+}
+
 enum class AnimationIntensity(val title: String, val scaleFactor: Float) {
     DISABLED("Отключено", 0f),
     MINIMAL("Минимальная", 0.5f),

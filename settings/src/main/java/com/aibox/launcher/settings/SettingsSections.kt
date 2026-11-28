@@ -92,6 +92,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.model.VisualStyle
+import com.aibox.launcher.core.model.WidgetStyle
 import com.aibox.launcher.core.model.WallpaperType
 import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.icons.AppIconPreview
@@ -213,16 +214,16 @@ internal fun HomeSection(
             icon = Icons.Rounded.Widgets,
             iconColor = settingsAccent(),
             title = "Система виджетов",
-            value = "iPad",
-            subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4 / 6×4, умный стек",
+            value = "Android AppWidgets",
+            subtitle = "Сетка 6×10, размеры 2×2 / 4×2 / 4×4 / 6×4. Стиль — в «Размеры → Стиль виджетов»",
             showChevron = false
         )
         RowDivider()
         SettingsRow(
             icon = Icons.Rounded.Refresh,
             iconColor = Color(0xFFFF9F0A),
-            title = "Сбросить рабочие столы",
-            subtitle = "Вернуть стандартный набор виджетов",
+            title = "Очистить рабочие столы",
+            subtitle = "Удалить все добавленные виджеты",
             onClick = { settings.resetWidgetBoards() }
         )
     }
@@ -621,6 +622,15 @@ internal fun PersonalizationSection(
             title = "Виджеты главного экрана",
             value = "Изменить",
             onClick = { onOpenSection(SettingsSection.HOME) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = settingsAccent(),
+            title = "Стиль виджетов",
+            value = settings.widgetStyle.title,
+            subtitle = "iPad, Google Pixel или Samsung One UI",
+            onClick = { onOpenSection(SettingsSection.SIZES) }
         )
     }
 }
@@ -1716,7 +1726,7 @@ internal fun UpdateSection() {
 private fun percent(value: Float) = "${(value * 100).roundToInt()}%"
 
 @Composable
-internal fun SizesSection(settings: LauncherSettings) {
+internal fun SizesSection(settings: LauncherSettings, onPick: (PickerRequest) -> Unit) {
     SettingsGroup {
         SliderRow(
             title = "Весь интерфейс",
@@ -1741,6 +1751,24 @@ internal fun SizesSection(settings: LauncherSettings) {
             valueRange = 0.6f..1.6f,
             steps = 20,
             onValueChange = { settings.updateWidgetScale(it) }
+        )
+        RowDivider()
+        SettingsRow(
+            icon = Icons.Rounded.Widgets,
+            iconColor = settingsAccent(),
+            title = "Стиль виджетов",
+            value = settings.widgetStyle.title,
+            subtitle = "iPad, Google Pixel или Samsung One UI",
+            onClick = {
+                onPick(
+                    PickerRequest(
+                        title = "Стиль виджетов",
+                        options = WidgetStyle.entries.map { PickerOption(it.id, it.title) },
+                        selectedKey = settings.widgetStyle.id,
+                        onSelect = { key -> settings.updateWidgetStyle(WidgetStyle.fromId(key)) }
+                    )
+                )
+            }
         )
         RowDivider()
         SliderRow(

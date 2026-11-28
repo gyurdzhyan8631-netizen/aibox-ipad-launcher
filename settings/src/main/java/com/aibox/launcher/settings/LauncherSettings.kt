@@ -7,14 +7,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.aibox.launcher.core.model.VisualStyle
 import com.aibox.launcher.core.model.WallpaperType
+import com.aibox.launcher.core.model.WidgetStyle
 import com.aibox.launcher.core.ui.LauncherFonts
+import com.aibox.launcher.widgets.WIDGET_GRID_COLUMNS
+import com.aibox.launcher.widgets.WIDGET_GRID_ROWS
 import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
-import com.aibox.launcher.widgets.WidgetType
 import com.aibox.launcher.widgets.defaultWidgetBoard
-import com.aibox.launcher.widgets.enlargeExistingWidget
-import com.aibox.launcher.widgets.findFreeWidgetSpot
-import java.util.UUID
+import com.aibox.launcher.widgets.encodeBoard
+import com.aibox.launcher.widgets.firstFreeWidgetSpot
+import com.aibox.launcher.widgets.parseBoard
 
 enum class ClockStyle(val id: String, val title: String) {
     BOLD("bold", "Жирный"),
@@ -55,13 +57,23 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     init {
         // Старая система виджетов больше не используется — чистим её ключи при первом запуске.
-        if (prefs.contains(K_P1) || prefs.contains(K_P2) || prefs.contains(K_SIZES)) {
+        if (prefs.contains(K_P1) || prefs.contains(K_P2) || prefs.contains(K_SIZES) ||
+            prefs.contains(K_WIDGET) || prefs.contains("widget_board_size_v2")
+        ) {
             prefs.edit()
                 .remove(K_P1)
                 .remove(K_P2)
                 .remove(K_SIZES)
                 .remove(K_WIDGET)
+                .remove("widget_board_size_v2")
                 .apply()
+        }
+        // Записи старого формата (с typeId) больше не читаются — удаляем сразу.
+        listOf(K_BOARD1, K_BOARD2).forEach { key ->
+            val raw = prefs.getString(key, null)
+            if (!raw.isNullOrBlank() && parseBoard(raw, emptyList()).isEmpty()) {
+                prefs.edit().remove(key).apply()
+            }
         }
 
         // Старая система обоев (темы, фото, живое небо, динамические сцены) больше не используется.
@@ -79,24 +91,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
             prefs.edit().putString(K_WP_TYPE, "system").putString(K_WP_PATH, "").apply()
         }
 
-        // Виджеты стали крупнее: один раз увеличиваем сохранённые 2×2 → 4×2 и 4×2 → 4×4.
-        if (!prefs.getBoolean(K_BOARD_SIZE_V2, false)) {
-            listOf(K_BOARD1, K_BOARD2).forEach { key ->
-                val raw = prefs.getString(key, null)
-                if (!raw.isNullOrBlank()) {
-                    val upgraded = mutableListOf<WidgetItem>()
-                    parseBoard(raw, emptyList()).forEach { item ->
-                        val size = enlargeExistingWidget(item.size)
-                        val (column, row) = findFreeWidgetSpot(
-                            upgraded, null, size, item.column, item.row
-                        )
-                        upgraded += item.copy(size = size, column = column, row = row)
-                    }
-                    prefs.edit().putString(key, encodeBoard(upgraded)).apply()
-                }
-            }
-            prefs.edit().putBoolean(K_BOARD_SIZE_V2, true).apply()
-        }
     }
 
     var panelScale by mutableFloatStateOf(prefs.getFloat(K_PANEL, 1f).coerceIn(0.75f, 1.35f))
@@ -151,6 +145,12 @@ class LauncherSettings(private val prefs: SharedPreferences) {
 
     /** Брендовый стиль из раздела «Стили OS». Управляет цветами интерфейса. */
     var visualStyle by mutableStateOf(VisualStyle.fromId(prefs.getString(K_VISUAL_STYLE, null)))
+        private set
+
+    /** Стиль системных виджетов: выбирается в «Размеры», по умолчанию идёт от стиля OS. */
+    var widgetStyle by mutableStateOf(
+        WidgetStyle.fromId(prefs.getString(K_WIDGET_STYLE, null) ?: WidgetStyle.forVisualStyle(visualStyle).id)
+    )
         private set
 
     var musicPackage by mutableStateOf(prefs.getString(K_MUSIC, "") ?: "")
@@ -227,6 +227,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
      */
     fun applyOsStyle(value: VisualStyle) {
         visualStyle = value
+        widgetStyle = WidgetStyle.forVisualStyle(value)
         val preset = when (value) {
             VisualStyle.IPAD -> OsPreset(
                 ClockStyle.IPHONE, "sans", "sans", "sans", "sans"
@@ -251,12 +252,19 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         }
         prefs.edit()
             .putString(K_VISUAL_STYLE, value.name)
+            .putString(K_WIDGET_STYLE, widgetStyle.id)
             .putString(K_CLOCK_STYLE, clockStyle.id)
             .putString(K_INTERFACE_FONT, interfaceFontId)
             .putString(K_CLOCK_FONT, clockFontId)
             .putString(K_DATE_FONT, dateFontId)
             .putString(K_GREETING_FONT, greetingFontId)
             .apply()
+    }
+
+    /** Выбор стиля виджетов из раздела «Размеры» не меняет часы, шрифты и цвета интерфейса. */
+    fun updateWidgetStyle(value: WidgetStyle) {
+        widgetStyle = value
+        prefs.edit().putString(K_WIDGET_STYLE, value.id).apply()
     }
 
     fun updateMusicPackage(value: String) {
@@ -302,12 +310,17 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         }
     }
 
-    fun addWidget(page: Int, type: WidgetType, size: WidgetSizeClass = type.defaultSize): WidgetItem {
+    /** Добавление системного AppWidget после выбора в пикере Android. */
+    fun addHostedWidget(
+        page: Int,
+        appWidgetId: Int,
+        size: WidgetSizeClass = WidgetSizeClass.MEDIUM
+    ): WidgetItem {
         val current = widgetBoard(page)
-        val (column, row) = findFreeWidgetSpot(current, null, size, 0, 0)
+        val (column, row) = firstFreeWidgetSpot(current, size)
         val item = WidgetItem(
-            id = "w-${UUID.randomUUID()}",
-            type = type,
+            id = appWidgetId.toString(),
+            appWidgetId = appWidgetId,
             size = size,
             column = column,
             row = row
@@ -320,14 +333,18 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         storeBoard(page, widgetBoard(page).filter { it.id != id })
     }
 
+    /** Перенос в любую ячейку сетки: пересечения разрешены, зарезервированных зон нет. */
     fun moveWidget(page: Int, id: String, column: Int, row: Int) {
         val current = widgetBoard(page)
         val item = current.firstOrNull { it.id == id } ?: return
-        val (freeColumn, freeRow) = findFreeWidgetSpot(current, id, item.size, column, row)
+        val maxColumn = (WIDGET_GRID_COLUMNS - item.size.columns).coerceAtLeast(0)
+        val maxRow = (WIDGET_GRID_ROWS - item.size.rows).coerceAtLeast(0)
+        val targetColumn = column.coerceIn(0, maxColumn)
+        val targetRow = row.coerceIn(0, maxRow)
         storeBoard(
             page,
             current.map {
-                if (it.id == id) it.copy(column = freeColumn, row = freeRow) else it
+                if (it.id == id) it.copy(column = targetColumn, row = targetRow) else it
             }
         )
     }
@@ -335,12 +352,17 @@ class LauncherSettings(private val prefs: SharedPreferences) {
     fun resizeWidget(page: Int, id: String, size: WidgetSizeClass) {
         val current = widgetBoard(page)
         val item = current.firstOrNull { it.id == id } ?: return
-        val (freeColumn, freeRow) = findFreeWidgetSpot(current, id, size, item.column, item.row)
+        val maxColumn = (WIDGET_GRID_COLUMNS - size.columns).coerceAtLeast(0)
+        val maxRow = (WIDGET_GRID_ROWS - size.rows).coerceAtLeast(0)
         storeBoard(
             page,
             current.map {
                 if (it.id == id) {
-                    it.copy(size = size, column = freeColumn, row = freeRow)
+                    it.copy(
+                        size = size,
+                        column = it.column.coerceIn(0, maxColumn),
+                        row = it.row.coerceIn(0, maxRow)
+                    )
                 } else {
                     it
                 }
@@ -407,35 +429,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         if (wallpaperPath == path) selectWallpaper(WallpaperType.SYSTEM)
     }
 
-    private fun encodeBoard(items: List<WidgetItem>): String =
-        items.joinToString(";") { item ->
-            listOf(
-                item.id,
-                item.type.id,
-                item.size.id,
-                item.column.toString(),
-                item.row.toString()
-            ).joinToString(",")
-        }
-
-    private fun parseBoard(raw: String?, fallback: List<WidgetItem>): List<WidgetItem> {
-        if (raw.isNullOrBlank()) return fallback
-        val parsed = raw.split(';').mapNotNull { entry ->
-            val parts = entry.split(',')
-            if (parts.size != 5) return@mapNotNull null
-            val column = parts[3].toIntOrNull() ?: return@mapNotNull null
-            val row = parts[4].toIntOrNull() ?: return@mapNotNull null
-            WidgetItem(
-                id = parts[0],
-                type = WidgetType.fromId(parts[1]),
-                size = WidgetSizeClass.fromId(parts[2]),
-                column = column,
-                row = row
-            )
-        }
-        return parsed.ifEmpty { fallback }
-    }
-
     private companion object {
         const val DEFAULT_UI_SCALE = 0.85f
         const val K_UI = "ui_scale"
@@ -455,6 +448,7 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_DATE_FONT = "date_font"
         const val K_GREETING_FONT = "greeting_font"
         const val K_VISUAL_STYLE = "visual_style"
+        const val K_WIDGET_STYLE = "widget_style"
         const val K_MUSIC = "music_package"
         const val K_NAV = "nav_package"
         const val K_WEATHER = "weather_package"
@@ -465,7 +459,6 @@ class LauncherSettings(private val prefs: SharedPreferences) {
         const val K_WP_PATH = "wallpaper_path"
         const val K_BOARD1 = "widget_board_page1"
         const val K_BOARD2 = "widget_board_page2"
-        const val K_BOARD_SIZE_V2 = "widget_board_size_v2"
 
         // Удаляемые ключи старой системы виджетов.
         const val K_P1 = "widgets_page1"

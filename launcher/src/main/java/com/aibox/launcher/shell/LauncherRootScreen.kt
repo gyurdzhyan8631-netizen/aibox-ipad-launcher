@@ -1,13 +1,16 @@
 package com.aibox.launcher.shell
 
 import android.Manifest
+import android.appwidget.AppWidgetHost
+import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.content.res.Configuration
 import android.content.Intent
 import android.location.Location
 import android.net.Uri
-import android.provider.AlarmClock
-import android.provider.Settings
+import android.os.Bundle
+import android.widget.FrameLayout
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -40,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -55,6 +59,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +72,7 @@ import com.aibox.launcher.core.model.InstalledApp
 import com.aibox.launcher.core.ui.LauncherFonts
 import com.aibox.launcher.core.ui.ScaledContent
 import com.aibox.launcher.core.ui.theme.AiBoxLauncherTheme
+import com.aibox.launcher.core.ui.theme.LocalWidgetStyle
 import androidx.compose.ui.unit.Density
 import com.aibox.launcher.desktop.WidgetBoard
 import com.aibox.launcher.dock.CarouselDockBar
@@ -79,18 +85,19 @@ import com.aibox.launcher.settings.SettingsScreen
 import com.aibox.launcher.settings.WeatherSource
 import com.aibox.launcher.system.SystemActionsHandler
 import com.aibox.launcher.wallpaper.WallpaperLayer
-import com.aibox.launcher.widgets.WidgetType
-import com.aibox.launcher.widgets.WidgetWeatherInfo
+import com.aibox.launcher.widgets.HostedWidgetSurface
+import com.aibox.launcher.widgets.MissingWidgetPlaceholder
+import com.aibox.launcher.widgets.WidgetItem
+import com.aibox.launcher.widgets.WidgetSizeClass
+import com.aibox.launcher.widgets.widgetOptions
 import com.aibox.launcher.weather.CityNotFoundException
 import com.aibox.launcher.weather.GpsLocationSource
 import com.aibox.launcher.weather.WeatherRepository
-import com.aibox.launcher.weather.SunCalc
 import com.aibox.launcher.weather.ageText
 import com.aibox.launcher.weather.formatTemp
-import com.aibox.launcher.weather.isStale
-import com.aibox.launcher.weather.titleRu
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -115,6 +122,7 @@ fun LauncherRootScreen() {
     // Токены выбранной обложки стиля OS: цвета меню, ползунков и виджетов.
     AiBoxLauncherTheme(style = settings.visualStyle) {
         CompositionLocalProvider(
+            LocalWidgetStyle provides settings.widgetStyle,
             LocalDensity provides Density(baseDensity.density * uiScale, baseDensity.fontScale),
             LocalConfiguration provides scaledConfig
         ) {
@@ -134,6 +142,110 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     val pagerState = rememberPagerState(pageCount = { 2 })
     val scope = rememberCoroutineScope()
     val compact = LocalConfiguration.current.screenHeightDp < 480
+
+    // --- Настоящие системные AppWidget: хост, пикер Android и очистка старых id ---
+    val appWidgetManager = remember { AppWidgetManager.getInstance(context) }
+    val appWidgetHost = remember { LauncherAppWidgetHost(context) }
+    val trackedWidgetIds = remember { mutableStateMapOf<Int, Unit>() }
+    var pendingWidgetId by remember { mutableIntStateOf(AppWidgetManager.INVALID_APPWIDGET_ID) }
+
+    DisposableEffect(appWidgetHost) {
+        appWidgetHost.startListening()
+        onDispose { appWidgetHost.stopListening() }
+    }
+
+    LaunchedEffect(Unit) {
+        (settings.widgetBoard1 + settings.widgetBoard2).forEach {
+            trackedWidgetIds[it.appWidgetId] = Unit
+        }
+        // Виджет удалённого/отключённого провайдера не должен оставаться на столе.
+        listOf(1, 2).forEach { page ->
+            settings.widgetBoard(page).forEach { item ->
+                if (runCatching { appWidgetManager.getAppWidgetInfo(item.appWidgetId) }.getOrNull() == null) {
+                    settings.removeWidget(page, item.id)
+                }
+            }
+        }
+    }
+
+    // Id, которых больше нет ни на одном столе (удаление в правке или сброс в настройках).
+    LaunchedEffect(settings.widgetBoard1, settings.widgetBoard2) {
+        val active = (settings.widgetBoard1 + settings.widgetBoard2).map { it.appWidgetId }.toSet()
+        (trackedWidgetIds.keys - active).forEach { id ->
+            appWidgetHost.deleteAppWidgetId(id)
+            trackedWidgetIds.remove(id)
+        }
+    }
+
+    val bindWidgetLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val id = pendingWidgetId
+        pendingWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+        if (result.resultCode == android.app.Activity.RESULT_OK &&
+            id != AppWidgetManager.INVALID_APPWIDGET_ID
+        ) {
+            val info = runCatching { appWidgetManager.getAppWidgetInfo(id) }.getOrNull()
+            if (info != null) {
+                trackedWidgetIds[id] = Unit
+                settings.addHostedWidget(pagerState.currentPage + 1, id, sizeForProvider(info))
+            } else {
+                appWidgetHost.deleteAppWidgetId(id)
+            }
+        } else {
+            appWidgetHost.deleteAppWidgetId(id)
+            trackedWidgetIds.remove(id)
+        }
+    }
+
+    val pickWidgetLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val id = result.data?.getIntExtra(
+            AppWidgetManager.EXTRA_APPWIDGET_ID,
+            AppWidgetManager.INVALID_APPWIDGET_ID
+        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        if (result.resultCode != android.app.Activity.RESULT_OK ||
+            id == AppWidgetManager.INVALID_APPWIDGET_ID
+        ) {
+            appWidgetHost.deleteAppWidgetId(id)
+            trackedWidgetIds.remove(id)
+            return@rememberLauncherForActivityResult
+        }
+        val info = runCatching { appWidgetManager.getAppWidgetInfo(id) }.getOrNull()
+        if (info == null) {
+            appWidgetHost.deleteAppWidgetId(id)
+            trackedWidgetIds.remove(id)
+            return@rememberLauncherForActivityResult
+        }
+        if (appWidgetManager.bindAppWidgetIdIfAllowed(id, info.provider)) {
+            trackedWidgetIds[id] = Unit
+            settings.addHostedWidget(pagerState.currentPage + 1, id, sizeForProvider(info))
+        } else {
+            // Android 14+: провайдер требует явного подтверждения привязки.
+            pendingWidgetId = id
+            val bind = Intent(AppWidgetManager.ACTION_APPWIDGET_BIND)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_PROVIDER, info.provider)
+            runCatching { bindWidgetLauncher.launch(bind) }.onFailure {
+                appWidgetHost.deleteAppWidgetId(id)
+                trackedWidgetIds.remove(id)
+            }
+        }
+    }
+
+    fun addSystemWidget() {
+        val id = appWidgetHost.allocateAppWidgetId()
+        trackedWidgetIds[id] = Unit
+        val pick = Intent(AppWidgetManager.ACTION_APPWIDGET_PICK)
+            .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, id)
+            .putExtra(AppWidgetManager.EXTRA_CUSTOM_INFO, ArrayList<AppWidgetProviderInfo>())
+            .putExtra(AppWidgetManager.EXTRA_CUSTOM_EXTRAS, ArrayList<Bundle>())
+        runCatching { pickWidgetLauncher.launch(pick) }.onFailure {
+            appWidgetHost.deleteAppWidgetId(id)
+            trackedWidgetIds.remove(id)
+        }
+    }
 
     // --- Погода: офлайн-приоритет (кэш на устройстве + фоновое обновление) ---
     val weatherRepo = remember { WeatherRepository(context) }
@@ -263,13 +375,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
     // В боковом доке участвуют все приложения — порядок по алфавиту и замкнутый круг.
     val carouselApps = remember(apps) { apps.sortedBy { it.label } }
 
-    fun appPackage(vararg hints: String): String? = apps.firstOrNull { app ->
-        hints.any { hint ->
-            app.label.contains(hint, ignoreCase = true) ||
-                app.packageName.contains(hint, ignoreCase = true)
-        }
-    }?.packageName
-
     val launchPackage: (String) -> Boolean = { packageName ->
         val intent = context.packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
@@ -293,14 +398,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             runCatching { context.startActivity(geo) }
         }
     }
-    val openWeather: () -> Unit = {
-        val chosen = settings.weatherPackage
-        if (chosen.isBlank() || !launchPackage(chosen)) {
-            val url = Intent(Intent.ACTION_VIEW, Uri.parse("https://weather.google.com"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { context.startActivity(url) }
-        }
-    }
     val openVideo: () -> Unit = {
         val chosen = settings.videoPackage
         if (chosen.isBlank() || !launchPackage(chosen)) {
@@ -309,53 +406,12 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             runCatching { context.startActivity(url) }
         }
     }
-    val openCalendar: () -> Unit = {
-        val pkg = appPackage("calendar", "календар")
-        if (pkg == null || !launchPackage(pkg)) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("content://com.android.calendar/time/"))
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { context.startActivity(intent) }
-        }
-    }
-    val openClock: () -> Unit = {
-        val pkg = appPackage("clock", "часы")
-        if (pkg == null || !launchPackage(pkg)) {
-            val intent = Intent(AlarmClock.ACTION_SHOW_ALARMS)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { context.startActivity(intent) }
-        }
-    }
-    val openNotes: () -> Unit = {
-        val pkg = appPackage("notes", "note", "заметк")
-        if (pkg != null) launchPackage(pkg)
-    }
-    val openPhotos: () -> Unit = {
-        val pkg = appPackage("photos", "gallery", "галерея", "фото")
-        if (pkg == null || !launchPackage(pkg)) {
-            val intent = Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_APP_GALLERY)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            runCatching { context.startActivity(intent) }
-        }
-    }
-    val openPowerSettings: () -> Unit = {
-        val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(intent) }
-    }
-    val openNetworkSettings: () -> Unit = {
-        val intent = Intent(Settings.ACTION_WIFI_SETTINGS)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        runCatching { context.startActivity(intent) }
-    }
-
     // --- Состояние экрана ---
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     var showQuickPanel by remember { mutableStateOf(false) }
     var showAppDrawer by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var editMode by remember { mutableStateOf(false) }
-    var showWidgetGallery by remember { mutableStateOf(false) }
     var settingsSection by remember { mutableStateOf("personalization") }
 
     val openSettings: (String) -> Unit = { sectionId ->
@@ -364,30 +420,11 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         showAppDrawer = false
         showSettings = true
     }
-    val openWidget: (WidgetType) -> Unit = { widget ->
-        when (widget) {
-            WidgetType.WEATHER -> openWeather()
-            WidgetType.MUSIC -> openMusic()
-            WidgetType.CALENDAR -> openCalendar()
-            WidgetType.CLOCK -> openClock()
-            WidgetType.BATTERY -> openPowerSettings()
-            WidgetType.NOTES -> openNotes()
-            WidgetType.PHOTOS -> openPhotos()
-            WidgetType.SMART_STACK -> openWeather()
-        }
-    }
-
     LaunchedEffect(Unit) {
         while (true) {
             now = LocalDateTime.now()
             delay(1000L)
         }
-    }
-
-    // Восход и закат по координатам города (без интернета); если города нет — 6:30 и 18:30.
-    val today = now.toLocalDate()
-    val sunTimes = remember(shownWeather?.cityName, today) {
-        weatherRepo.coordinates()?.let { (lat, lon) -> SunCalc.sunriseSunset(lat, lon, today) }
     }
 
     val dayPeriod = when (now.hour) {
@@ -402,40 +439,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
         DayPeriod.DAY -> "ДОБРЫЙ ДЕНЬ"
         DayPeriod.EVENING -> "ДОБРЫЙ ВЕЧЕР"
         DayPeriod.NIGHT -> "ДОБРОЙ НОЧИ"
-    }
-
-    fun timeLabel(minutes: Int): String =
-        String.format(Locale.getDefault(), "%02d:%02d", minutes / 60, minutes % 60)
-
-    val sunriseText = sunTimes?.first?.let(::timeLabel) ?: "06:30"
-    val sunsetText = sunTimes?.second?.let(::timeLabel) ?: "18:30"
-
-    val weatherInfo = when {
-        city.isBlank() -> WidgetWeatherInfo(
-            condition = "Укажите город",
-            place = "Настройки → Главная",
-            sunrise = sunriseText,
-            sunset = sunsetText
-        )
-        shownWeather != null -> WidgetWeatherInfo(
-            temp = formatTemp(shownWeather.tempC),
-            condition = shownWeather.condition.titleRu(),
-            place = shownWeather.cityName,
-            isDay = now.hour in 6..18,
-            sunrise = sunriseText,
-            sunset = sunsetText,
-            note = when {
-                errorText != null -> errorText
-                isStale(shownWeather.fetchedAtMillis, nowMillis) -> "нет связи"
-                else -> "обновлено ${ageText(shownWeather.fetchedAtMillis, nowMillis)}"
-            }
-        )
-        else -> WidgetWeatherInfo(
-            condition = "Загрузка…",
-            place = city,
-            sunrise = sunriseText,
-            sunset = sunsetText
-        )
     }
 
     // Высоты шапки и нижней панели: рабочие столы занимают весь экран, а виджеты не залезают под панели.
@@ -504,8 +507,25 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 WidgetBoard(
                     items = settings.widgetBoard(pageNumber),
                     widgetScale = settings.widgetScale,
+                    widgetContent = { item, contentModifier, cellWidth, cellHeight ->
+                        val info = runCatching {
+                            appWidgetManager.getAppWidgetInfo(item.appWidgetId)
+                        }.getOrNull()
+                        if (info == null) {
+                            MissingWidgetPlaceholder()
+                        } else {
+                            HostedWidgetView(
+                                host = appWidgetHost,
+                                manager = appWidgetManager,
+                                item = item,
+                                info = info,
+                                cellWidth = cellWidth,
+                                cellHeight = cellHeight,
+                                modifier = contentModifier
+                            )
+                        }
+                    },
                     editMode = editMode,
-                    weather = weatherInfo,
                     onEnterEdit = {
                         showQuickPanel = false
                         showAppDrawer = false
@@ -513,9 +533,11 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     },
                     onMove = { id, column, row -> settings.moveWidget(pageNumber, id, column, row) },
                     onResize = { id, size -> settings.resizeWidget(pageNumber, id, size) },
-                    onRemove = { id -> settings.removeWidget(pageNumber, id) },
-                    onAdd = { showWidgetGallery = true },
-                    onOpenWidget = openWidget,
+                    onRemove = { id ->
+                        id.toIntOrNull()?.let { trackedWidgetIds.remove(it) }
+                        settings.removeWidget(pageNumber, id)
+                    },
+                    onAdd = { addSystemWidget() },
                     topPadding = pageTop,
                     bottomPadding = pageBottom
                 )
@@ -619,7 +641,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     uiScale = uiScale,
                     onBack = {
                         when {
-                            showWidgetGallery -> showWidgetGallery = false
                             editMode -> editMode = false
                             showSettings -> showSettings = false
                             showAppDrawer -> showAppDrawer = false
@@ -629,7 +650,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                     },
                     onHome = {
                         editMode = false
-                        showWidgetGallery = false
                         showSettings = false
                         showAppDrawer = false
                         showQuickPanel = false
@@ -678,15 +698,6 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
                 .align(Alignment.TopCenter)
                 .padding(top = verticalPad + 6.dp)
         )
-        WidgetGallerySheet(
-            visible = showWidgetGallery,
-            onAdd = { type, size ->
-                settings.addWidget(pagerState.currentPage + 1, type, size)
-                showWidgetGallery = false
-            },
-            onDismiss = { showWidgetGallery = false }
-        )
-
         // 7. Настройки (как в iPad)
         SettingsScreen(
             visible = showSettings,
@@ -696,15 +707,57 @@ private fun LauncherRootContent(settings: LauncherSettings, uiScale: Float) {
             weatherStatus = weatherStatus,
             onClose = { showSettings = false }
         )
+    }
+}
 
-        // 8. Плавающая кнопка диктовки Hex — видна на всех экранах лаунчера.
-        DictationButton(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 28.dp,
-                    bottom = with(density) { bottomPx.toDp() } + verticalPad + 16.dp
+/** Хост системных виджетов лаунчера. Один id на все рабочие столы. */
+private class LauncherAppWidgetHost(context: Context) : AppWidgetHost(context, HOST_ID) {
+    private companion object {
+        const val HOST_ID = 1024
+    }
+}
+
+/** Размер виджета по targetCellWidth/targetCellHeight провайдера (API 31+). */
+private fun sizeForProvider(info: AppWidgetProviderInfo): WidgetSizeClass {
+    val width = info.targetCellWidth.takeIf { it > 0 } ?: 4
+    val height = info.targetCellHeight.takeIf { it > 0 } ?: 2
+    return when {
+        width <= 2 && height <= 2 -> WidgetSizeClass.SMALL
+        width <= 4 && height <= 2 -> WidgetSizeClass.MEDIUM
+        width <= 4 && height <= 4 -> WidgetSizeClass.LARGE
+        else -> WidgetSizeClass.EXTRA_LARGE
+    }
+}
+
+/** Живой системный AppWidget внутри рамки выбранного стиля (iPad / Pixel / One UI). */
+@Composable
+private fun HostedWidgetView(
+    host: AppWidgetHost,
+    manager: AppWidgetManager,
+    item: WidgetItem,
+    info: AppWidgetProviderInfo,
+    cellWidth: androidx.compose.ui.unit.Dp,
+    cellHeight: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    HostedWidgetSurface(modifier) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                val view = host.createView(ctx, item.appWidgetId, info)
+                view.layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT
                 )
+                view
+            },
+            update = { view ->
+                val options = widgetOptions(item.size, cellWidth, cellHeight)
+                manager.updateAppWidgetOptions(item.appWidgetId, options)
+                val width = (cellWidth.value * item.size.columns).roundToInt()
+                val height = (cellHeight.value * item.size.rows).roundToInt()
+                view.updateAppWidgetSize(options, width, height, width, height)
+            }
         )
     }
 }

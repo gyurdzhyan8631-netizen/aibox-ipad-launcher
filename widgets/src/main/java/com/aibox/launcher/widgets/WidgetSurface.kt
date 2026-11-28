@@ -1,86 +1,69 @@
 package com.aibox.launcher.widgets
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.aibox.launcher.core.ui.glassSurface
 import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
+import com.aibox.launcher.core.ui.theme.LocalWidgetStyle
 
 /**
- * Единая оболочка всех виджетов.
- *
- * Визуальный стиль Liquid Glass взят из tvOS-Launcher (Apache License 2.0):
- * тёплая тёмная подложка, верхний рассеянный блик и диагональная светящаяся кромка.
- * Поведение, размеры и данные виджетов не меняются.
+ * Оболочка системного AppWidget. Само содержимое рисует RemoteViews провайдера,
+ * здесь задаются только радиус, фон, кромка и мягкая тень выбранного стиля.
  */
 @Composable
-fun WidgetSurface(
+fun HostedWidgetSurface(
     modifier: Modifier = Modifier,
-    compact: Boolean = false,
     content: @Composable () -> Unit
 ) {
-    val shape = RoundedCornerShape(if (compact) 22.dp else 28.dp)
-    Box(
-        modifier = modifier
-            .background(Color(0xC4111218), shape)
-            .glassSurface(shape, strength = 1.15f)
-            .padding(if (compact) 12.dp else 16.dp)
-    ) {
-        content()
-    }
-}
-
-@Composable
-fun WidgetTitle(text: String, color: Color, modifier: Modifier = Modifier) {
-    Text(
-        text = text,
-        color = color,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier
-    )
-}
-
-@Composable
-fun WidgetCaption(text: String, modifier: Modifier = Modifier) {
     val tokens = LocalLauncherTokens.current
-    Text(
-        text = text,
-        color = tokens.textSecondary,
-        fontSize = 12.sp,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = modifier
-    )
-}
+    val style = LocalWidgetStyle.current
+    val context = LocalContext.current
+    val density = LocalDensity.current
 
-@Composable
-fun WidgetStatusPill(text: String, color: Color, modifier: Modifier = Modifier) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .background(color.copy(alpha = 0.18f), RoundedCornerShape(10.dp))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    ) {
-        Text(
-            text = text,
-            color = color,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+    val radius: Dp = when (style) {
+        com.aibox.launcher.core.model.WidgetStyle.IPAD -> tokens.cornerRadius
+        com.aibox.launcher.core.model.WidgetStyle.PIXEL -> {
+            val system = with(density) {
+                runCatching {
+                    context.resources.getDimensionPixelSize(
+                        android.R.dimen.system_app_widget_background_radius
+                    )
+                }.getOrDefault(0).toDp()
+            }
+            if (system < 8.dp) 16.dp else system
+        }
+        com.aibox.launcher.core.model.WidgetStyle.ONE_UI -> 26.dp
+    }
+    val shape = RoundedCornerShape(radius)
+
+    val styled = when (style) {
+        // iPad: карточка с лёгкой кромкой и рассеянной тенью.
+        com.aibox.launcher.core.model.WidgetStyle.IPAD -> modifier
+            .shadow(4.dp, shape, ambientColor = Color(0x33000000), spotColor = Color(0x33000000))
+            .clip(shape)
+            .background(tokens.cardBackground, shape)
+            .border(1.dp, tokens.panelBorder, shape)
+        // Pixel: фон и скругление рисует сам системный виджет (edge-to-edge).
+        com.aibox.launcher.core.model.WidgetStyle.PIXEL -> modifier.clip(shape)
+        // One UI: сплошная спокойная подложка и мягкая тень, без яркой кромки.
+        com.aibox.launcher.core.model.WidgetStyle.ONE_UI -> modifier
+            .shadow(6.dp, shape, ambientColor = Color(0x2B000000), spotColor = Color(0x2B000000))
+            .clip(shape)
+            .background(tokens.cardBackground, shape)
+    }
+
+    Box(modifier = styled.fillMaxSize()) {
+        content()
     }
 }

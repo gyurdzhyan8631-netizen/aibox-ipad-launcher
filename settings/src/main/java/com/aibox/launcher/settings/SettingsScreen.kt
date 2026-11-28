@@ -206,7 +206,7 @@ fun SettingsScreen(
                                 onOpenSection = { section = it }
                             )
                             SettingsSection.STYLES -> OsStylesSection(settings)
-                            SettingsSection.SIZES -> SizesSection(settings)
+                            SettingsSection.SIZES -> SizesSection(settings, onPick = { picker = it })
                             SettingsSection.FONTS -> FontSection(settings, onPick = { picker = it })
                             SettingsSection.WALLPAPERS -> WallpaperSection(settings)
                             SettingsSection.ICONS -> CustomIconsSection(settings, apps, onPick = { picker = it })

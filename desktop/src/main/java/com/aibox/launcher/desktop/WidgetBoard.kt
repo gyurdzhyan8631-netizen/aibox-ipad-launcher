@@ -51,37 +51,33 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.ui.glassSurface
+import com.aibox.launcher.core.ui.theme.LocalLauncherTokens
 import com.aibox.launcher.widgets.WIDGET_GRID_COLUMNS
 import com.aibox.launcher.widgets.WIDGET_GRID_ROWS
 import com.aibox.launcher.widgets.WidgetItem
 import com.aibox.launcher.widgets.WidgetSizeClass
-import com.aibox.launcher.widgets.WidgetType
-import com.aibox.launcher.widgets.WidgetView
-import com.aibox.launcher.widgets.WidgetWeatherInfo
 import kotlin.math.roundToInt
 
-private val BoardAccent = Color(0xFF0A84FF)
-
 /**
- * Новая система рабочего стола: сетка 6×10, виджеты 2×2 / 4×2 / 4×4 / 6×4,
- * свободное перетаскивание пальцем и крупные кнопки «+» / «−» для смены размера.
+ * Рабочий стол: сетка 6×10, системные AppWidget, свободное перетаскивание в любую ячейку
+ * и покачивание всех виджетов в режиме правки. Никаких зарезервированных зон нет.
  */
 @Composable
 fun WidgetBoard(
     items: List<WidgetItem>,
     widgetScale: Float = 1f,
+    widgetContent: @Composable (WidgetItem, Modifier, Dp, Dp) -> Unit,
     editMode: Boolean,
-    weather: WidgetWeatherInfo,
     onEnterEdit: () -> Unit,
     onMove: (String, Int, Int) -> Unit,
     onResize: (String, WidgetSizeClass) -> Unit,
     onRemove: (String) -> Unit,
     onAdd: () -> Unit,
-    onOpenWidget: (WidgetType) -> Unit,
     topPadding: Dp,
     bottomPadding: Dp,
     modifier: Modifier = Modifier
 ) {
+    val accent = LocalLauncherTokens.current.accent
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -114,17 +110,19 @@ fun WidgetBoard(
                     index = index,
                     width = width,
                     height = height,
+                    cellWidth = cellWidth,
+                    cellHeight = cellHeight,
                     originX = originX + cell * item.column.toFloat() + gap / 2f,
                     originY = originY + cell * item.row.toFloat() + gap / 2f,
                     cellPx = with(density) { cell.toPx().coerceAtLeast(1f) },
                     widgetScale = widgetScale,
+                    widgetContent = widgetContent,
                     editMode = editMode,
                     onEnterEdit = onEnterEdit,
                     onMove = onMove,
                     onResize = onResize,
                     onRemove = onRemove,
-                    weather = weather,
-                    onOpenWidget = onOpenWidget
+                    accent = accent
                 )
             }
 
@@ -137,12 +135,12 @@ fun WidgetBoard(
                         .size(52.dp)
                         .clip(CircleShape)
                         .glassSurface(CircleShape, strength = 1.1f)
-                        .background(BoardAccent.copy(alpha = 0.55f))
+                        .background(accent.copy(alpha = 0.55f))
                         .clickable(onClick = onAdd)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
-                        contentDescription = "Добавить виджет",
+                        contentDescription = "Добавить системный виджет",
                         tint = Color.White,
                         modifier = Modifier.size(28.dp)
                     )
@@ -158,17 +156,19 @@ private fun WidgetBoardCell(
     index: Int,
     width: Dp,
     height: Dp,
+    cellWidth: Dp,
+    cellHeight: Dp,
     originX: Dp,
     originY: Dp,
     cellPx: Float,
     widgetScale: Float,
+    widgetContent: @Composable (WidgetItem, Modifier, Dp, Dp) -> Unit,
     editMode: Boolean,
     onEnterEdit: () -> Unit,
     onMove: (String, Int, Int) -> Unit,
     onResize: (String, WidgetSizeClass) -> Unit,
     onRemove: (String) -> Unit,
-    weather: WidgetWeatherInfo,
-    onOpenWidget: (WidgetType) -> Unit
+    accent: Color
 ) {
     val wiggle = rememberBoardWiggle(editMode, index)
     var drag by remember(item.id) { mutableStateOf(Offset.Zero) }
@@ -222,18 +222,18 @@ private fun WidgetBoardCell(
                 }
             }
     ) {
-        WidgetView(
-            item = item,
-            weather = weather,
-            onOpenWidget = onOpenWidget,
-            // Масштаб только картинки: сетка, зоны захвата и кнопки остаются на своих местах.
-            modifier = Modifier
+        widgetContent(
+            item,
+            Modifier
                 .fillMaxSize()
-                .graphicsLayer(scaleX = widgetScale, scaleY = widgetScale)
+                // Масштаб только содержимого: сетка и кнопки правки остаются на месте.
+                .graphicsLayer(scaleX = widgetScale, scaleY = widgetScale),
+            cellWidth,
+            cellHeight
         )
 
         if (editMode) {
-            // Поглощаем тапы в режиме правки, чтобы виджет не открывал приложение.
+            // В правке тапы не должны открывать приложения внутри системного виджета.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -265,7 +265,7 @@ private fun WidgetBoardCell(
                         .size(34.dp)
                         .clip(CircleShape)
                         .background(
-                            if (item.size != WidgetSizeClass.EXTRA_LARGE) BoardAccent else Color(0x660A84FF)
+                            if (item.size != WidgetSizeClass.EXTRA_LARGE) accent else accent.copy(alpha = 0.4f)
                         )
                         .clickable(enabled = item.size != WidgetSizeClass.EXTRA_LARGE) {
                             onResize(item.id, resizeStep(item.size, 1))
@@ -284,7 +284,7 @@ private fun WidgetBoardCell(
                         .size(34.dp)
                         .clip(CircleShape)
                         .background(
-                            if (item.size != WidgetSizeClass.SMALL) BoardAccent else Color(0x660A84FF)
+                            if (item.size != WidgetSizeClass.SMALL) accent else accent.copy(alpha = 0.4f)
                         )
                         .clickable(enabled = item.size != WidgetSizeClass.SMALL) {
                             onResize(item.id, resizeStep(item.size, -1))

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aibox.launcher.core.model.VisualStyle
+import com.aibox.launcher.core.model.WidgetStyle
 
 @Immutable
 data class LauncherStyleTokens(
@@ -30,6 +31,9 @@ data class LauncherStyleTokens(
     val cornerRadius: Dp,
     val isDark: Boolean
 )
+
+/** Стиль оформления системных виджетов; задаётся в «Размеры → Стиль виджетов». */
+val LocalWidgetStyle = staticCompositionLocalOf { WidgetStyle.IPAD }
 
 val LocalLauncherTokens = staticCompositionLocalOf {
     LauncherStyleTokens(
@@ -109,11 +113,11 @@ fun tokensForStyle(style: VisualStyle): LauncherStyleTokens = when (style) {
     )
     VisualStyle.SAMSUNG_TAB -> LauncherStyleTokens(
         panelBackground = Color(0xD9161D29),
-        panelBorder = Color(0x4D7AA2FF),
+        panelBorder = Color(0x4D3E91FF),
         cardBackground = Color(0xE2232C3B),
         textPrimary = Color(0xFFF5F8FF),
         textSecondary = Color(0xFFB9C8E0),
-        accent = Color(0xFF7AA2FF),
+        accent = Color(0xFF0381FE),
         cornerRadius = 26.dp,
         isDark = true
     )
